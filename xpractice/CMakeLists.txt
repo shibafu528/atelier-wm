@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+find_package(X11 REQUIRED)
+include_directories(${X11_INCLUDE_DIR})
+add_executable(xprac practice.c)
+target_link_libraries(xprac ${X11_LIBRARIES})
