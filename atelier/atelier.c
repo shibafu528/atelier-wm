@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #define Boolean int
+#define uint unsigned int
 #define Screen int
 #define TRUE 1
 #define FALSE 0
@@ -15,7 +16,6 @@ typedef struct _WindowList WindowList;
 struct _WindowList {
     Window frame;
     Window window;
-    GC gc;
     WindowList *prev;
     WindowList *next;
 };
@@ -23,57 +23,57 @@ struct _WindowList {
 Display *disp;
 Screen screen;
 Window root;
+GC gc;
 WindowList *windows;
 Boolean terminate = FALSE;
 
-WindowList* CreateWindowList(Window frame, Window window, GC gc) {
+WindowList* CreateWindowList(Window frame, Window window) {
     WindowList* wl = (WindowList*)malloc(sizeof(WindowList));
     wl->prev = NULL;
     wl->next = NULL;
     wl->frame = frame;
     wl->window = window;
-    wl->gc = gc;
     return wl;
 }
 
 //WindowをWMの管理下に置きフレームをつける
-void CatchWindow(XMapRequestEvent event) {
+Window CatchWindow(Window window) {
     XWindowAttributes attr;
+    XSetWindowAttributes setattr;
     Window frame;
-    GC gc;
     WindowList *wl;
-    XGetWindowAttributes(disp, event.window, &attr);
+    XGetWindowAttributes(disp, window, &attr);
     frame = XCreateSimpleWindow(disp, root,
-                                attr.x - FRAME_TITLE_HEIGHT,
-                                attr.y - FRAME_BORDER,
+                                attr.x,
+                                attr.y,
                                 attr.width + FRAME_BORDER * 2,
                                 attr.height + FRAME_TITLE_HEIGHT + 1,
                                 1,
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
+    setattr.override_redirect = True;
+    XChangeWindowAttributes(disp, frame, CWOverrideRedirect, &setattr);
     XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
-    XReparentWindow(disp, event.window, frame, 0, 0);
-    XMapWindow(disp, event.window);
-    XMapWindow(disp, frame);
+    XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
+    if (attr.map_state == IsViewable) {
+        XMapWindow(disp, window);
+        XMapWindow(disp, frame);
+    }
+    XChangeSaveSet(disp, window, SetModeInsert);
     XSync(disp, FALSE);
-    gc = XCreateGC(disp, frame, 0, NULL);
-    wl = CreateWindowList(frame, event.window, gc);
+    wl = CreateWindowList(frame, window);
     if (windows == NULL) {
         windows = wl;
     } else {
         windows->next = wl;
     }
+    return frame;
 }
 
 //Windowからフレームを除去しWMの管理から外す
 void ReleaseWindow(WindowList *window) {
-     XWindowAttributes attr;
-     Window parent;
-     XQueryTree(disp, window->frame, NULL, &parent, NULL, NULL);
-     XGetWindowAttributes(disp, window->frame, &attr);
-     XReparentWindow(disp, window->window, parent, attr.x, attr.y);
-     XFreeGC(disp, window->gc);
      XDestroyWindow(disp, window->frame);
+     XSync(disp, FALSE);
      if (window->prev != NULL) {
          window->prev->next = window->next;
      }
@@ -95,9 +95,9 @@ void DrawFrame(WindowList *wl) {
     XWindowAttributes attr;
     XGetWindowAttributes(disp, wl->frame, &attr);
     
-    XSetForeground(disp, wl->gc, BlackPixel(disp, screen));
-    XDrawRectangle(disp, wl->frame, wl->gc, 0, 0, attr.width, attr.height);
-    XFillRectangle(disp, wl->frame, wl->gc, 0, 0, attr.width, 22);
+    XSetForeground(disp, gc, BlackPixel(disp, screen));
+    XDrawRectangle(disp, wl->frame, gc, 0, 0, attr.width, attr.height);
+    XFillRectangle(disp, wl->frame, gc, 0, 0, attr.width, 22);
 }
 
 Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
@@ -116,7 +116,21 @@ int main(int argc, char* argv[]) {
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
 
-    XSelectInput(disp, root, SubstructureRedirectMask);
+    {
+        Window r, p;
+        Window* children;
+        uint children_num;
+        XQueryTree(disp, root, &r, &p, &children, &children_num);
+        for (uint i = 0; i < children_num; i++) {
+            CatchWindow(children[i]);
+        }
+        if (children != NULL) {
+            XFree(children);
+        }
+    }
+
+    gc = XCreateGC(disp, root, 0, NULL);
+    XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
@@ -124,15 +138,24 @@ int main(int argc, char* argv[]) {
     SetSignal(SIGTERM, QuitHandler);
 
     while(!terminate) {
+        WindowList* wl;
         XNextEvent(disp, &event);
 
         switch(event.type) {
         case MapRequest:
-            CatchWindow(event.xmaprequest);
+            XMapWindow(disp, CatchWindow(event.xmaprequest.window));
+            XMapWindow(disp, event.xmaprequest.window);
+            break;
+        case UnmapNotify:
+        case DestroyNotify:
+            wl = FindFrame(event.xunmap.window);
+            if (wl != NULL) {
+                ReleaseWindow(wl);
+            }
             break;
         case Expose:
             if (event.xexpose.count == 0) {
-                WindowList* wl = FindFrame(event.xexpose.window);
+                wl = FindFrame(event.xexpose.window);
                 if (wl != NULL) {
                     DrawFrame(wl);
                 }
@@ -141,6 +164,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    XFreeGC(disp, gc);
+
     //管理しているウィンドウをすべて解放する
     while (windows != NULL) {
         WindowList *next = windows->next;
@@ -148,4 +173,5 @@ int main(int argc, char* argv[]) {
         windows = next;
     }
     XCloseDisplay(disp);
+    return 0;
 }
