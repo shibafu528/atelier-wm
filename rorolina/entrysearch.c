@@ -1,18 +1,26 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <string.h>
-
-typedef struct {
-    gchar *name;
-    gchar *exec;
-    gchar *icon;
-} DesktopEntry;
+#include <stdlib.h>
+#include "desktopentry.h"
 
 static DesktopEntry* read_desktop_entry(const gchar* path) {
-    const char *IDENTIFY = "[Desktop Entry]";
+    enum IDENTIFY {
+        ID_NAME,
+        ID_EXEC,
+        ID_ICON,
+        IDS_NUM
+    };
+    const char *IDS[] = {
+        "Name=",
+        "Exec=",
+        "Icon="
+    };
+    const char *IDENTIFY = "[Desktop Entry]\n";
     const int LINE_LENGTH = 1024;
     FILE *fp;
     char line[LINE_LENGTH];
+    DesktopEntry *entry;
     
     fp = g_fopen(path, "r");
     if (fp == NULL) {
@@ -22,13 +30,30 @@ static DesktopEntry* read_desktop_entry(const gchar* path) {
 
     //ヘッダチェック
     if (fgets(line, LINE_LENGTH, fp) != NULL) {
-        if (strcmp(path, line) == 0) {
-            //TODO: ここから先でname, exec, iconを読み込んでいく
+        if (strcmp(IDENTIFY, line) == 0) {
             g_fprintf(stderr, "Identify OK: %s\n", path);
+            entry = new_desktop_entry();
             
             while (fgets(line, LINE_LENGTH, fp) != NULL) {
-                g_fprintf(stderr, "%s\n", line);
-            }
+                for (int i = 0; i < IDS_NUM; i++) {
+                    gchar *result = strstr(line, IDS[i]);
+                    if (result != NULL && line[strlen(IDS[i])-1] == '=') {
+                        gchar *ptr;
+                        switch (i) {
+                        case ID_NAME:
+                            ptr = entry->name;
+                            break;
+                        case ID_EXEC:
+                            ptr = entry->exec;
+                            break;
+                        case ID_ICON:
+                            ptr = entry->icon;
+                            break;
+                        }
+                        sscanf(&line[strlen(IDS[i])], "%s\n", ptr);
+                    }
+                }
+            }            
         } else {
             g_fprintf(stderr, "Identify Error: %s\n", path);
         }
@@ -37,6 +62,8 @@ static DesktopEntry* read_desktop_entry(const gchar* path) {
     }
 
     fclose(fp);
+    
+    return entry;
 }
 
 GList* get_application_list() {
@@ -44,6 +71,11 @@ GList* get_application_list() {
 }
 
 int main(int argc, char* argv[]) {
-    read_desktop_entry("/usr/share/applications/chromium.desktop");
+    DesktopEntry *ent;
+    ent = read_desktop_entry("/usr/share/applications/chromium.desktop");
+    if (ent != NULL) {
+        printf("Name:%s\nExec Command:%s\nIcon:%s\n", ent->name, ent->exec, ent->icon);
+        free_desktop_entry(ent);
+    }
     return 0;
 }
