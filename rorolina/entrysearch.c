@@ -4,6 +4,16 @@
 #include <stdlib.h>
 #include "desktopentry.h"
 
+static void chomp(gchar* str) {
+    gchar *p = str;
+    for (int i = 0; p != NULL && *p != '\0'; i++, p = &str[i]) {
+        if (*p == '\n') {
+            *p = '\0';
+            break;
+        }
+    }
+}
+
 static DesktopEntry* read_desktop_entry(const gchar* path) {
     enum IDENTIFY {
         ID_NAME,
@@ -20,7 +30,7 @@ static DesktopEntry* read_desktop_entry(const gchar* path) {
     const int LINE_LENGTH = 1024;
     FILE *fp;
     char line[LINE_LENGTH];
-    DesktopEntry *entry;
+    DesktopEntry *entry = NULL;
     
     fp = g_fopen(path, "r");
     if (fp == NULL) {
@@ -30,6 +40,7 @@ static DesktopEntry* read_desktop_entry(const gchar* path) {
 
     //ヘッダチェック
     if (fgets(line, LINE_LENGTH, fp) != NULL) {
+        while (*line == '#') fgets(line, LINE_LENGTH, fp);
         if (strcmp(IDENTIFY, line) == 0) {
             g_fprintf(stderr, "Identify OK: %s\n", path);
             entry = new_desktop_entry();
@@ -50,7 +61,8 @@ static DesktopEntry* read_desktop_entry(const gchar* path) {
                             ptr = entry->icon;
                             break;
                         }
-                        sscanf(&line[strlen(IDS[i])], "%s\n", ptr);
+                        g_strlcpy(ptr, &line[strlen(IDS[i])], DENTRY_CHAR_LENGTH);
+                        chomp(ptr);
                     }
                 }
             }            
@@ -67,15 +79,37 @@ static DesktopEntry* read_desktop_entry(const gchar* path) {
 }
 
 GList* get_application_list() {
-    return NULL;
-}
+    const gchar *APPDIRS[] = {
+        "/usr/share/applications",
+        g_build_filename(getenv("HOME"), ".local/share/applications", NULL)
+    };
+    const int APPDIRS_NUM = 2;
 
-int main(int argc, char* argv[]) {
-    DesktopEntry *ent;
-    ent = read_desktop_entry("/usr/share/applications/chromium.desktop");
-    if (ent != NULL) {
-        printf("Name:%s\nExec Command:%s\nIcon:%s\n", ent->name, ent->exec, ent->icon);
-        free_desktop_entry(ent);
+    GList *list = NULL;
+    GDir *dir;
+    
+    for (int i = 0; i < APPDIRS_NUM; i++) {
+        dir = g_dir_open(APPDIRS[i], 0, NULL);
+        if (dir) {
+            const gchar *name;
+            while (name = g_dir_read_name(dir)) {
+                gchar *path;
+                gchar *ext;
+                path = g_build_filename(APPDIRS[i], name, NULL);
+                ext = strstr(path, ".");
+                if (!g_file_test(path, G_FILE_TEST_IS_DIR) &&
+                    ext != NULL &&
+                    g_strcmp0(ext, ".desktop") == 0) {
+                    DesktopEntry *entry;
+                    entry = read_desktop_entry(path);
+                    if (entry != NULL) {
+                        list = g_list_append(list, entry);
+                    }
+                }
+                g_free(path);
+            }
+            g_dir_close(dir);
+        }
     }
-    return 0;
+    return g_list_first(list);
 }
