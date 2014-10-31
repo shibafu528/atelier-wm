@@ -115,7 +115,14 @@ static void auto_complete(GtkEntry *entry) {
         gchar *exec = get_desktop_entry(ent)->exec;
         gchar *sptr = strstr(exec, gtk_entry_get_text(entry));
         if (sptr != NULL && sptr == exec) {
+            for (int i = 0; i < strlen(exec); i++) {
+                if (exec[i] == ' ') {
+                    exec[i] = '\0';
+                    break;
+                }
+            }
             gtk_entry_set_text(entry, exec);
+            gtk_editable_set_position(GTK_EDITABLE(entry), -1);
             return;
         }
         ent = g_list_next(ent);
