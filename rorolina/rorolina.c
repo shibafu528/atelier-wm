@@ -1,21 +1,24 @@
 #include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include <glib/gstdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include "desktopentry.h"
 
 static void cb_entry(GtkEntry *entry, gpointer data);
 static void cb_execute(GtkButton *button, gpointer data);
-static gboolean cb_esc(GtkWidget *widget, GdkEventKey *event, gpointer data) {
-    if (event->keyval == GDK_KEY_Escape) {
-        gtk_main_quit();
-    }
-    return FALSE;
-}
+static gboolean cb_keypress(GtkWidget *widget, GdkEventKey *event, gpointer data);
+
+//Applications (.desktop files)
+static GList *applications = NULL;
 
 int main(int argc, char* argv[]) {
     GtkWidget *window;
 
     gtk_init(&argc, &argv);
+
+    applications = get_application_list();
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "Application Launcher");
@@ -32,7 +35,7 @@ int main(int argc, char* argv[]) {
 
             entry = gtk_entry_new();
             g_signal_connect(entry, "activate", G_CALLBACK(cb_entry), NULL);
-            g_signal_connect_after(entry, "key-press-event", G_CALLBACK(cb_esc), NULL);
+            g_signal_connect_after(entry, "key-press-event", G_CALLBACK(cb_keypress), NULL);
             gtk_container_add(GTK_CONTAINER(vbox), entry);
             
             hbox = gtk_hbox_new(TRUE, 2);
@@ -53,6 +56,8 @@ int main(int argc, char* argv[]) {
     gtk_widget_show_all(window);
 
     gtk_main();
+
+    free_desktop_entries(applications);
 
     return 0;
 }
@@ -104,10 +109,33 @@ void execute_command(const gchar *command) {
     }    
 }
 
+static void auto_complete(GtkEntry *entry) {
+    GList *ent = g_list_first(applications);
+    while (ent != NULL) {
+        gchar *exec = get_desktop_entry(ent)->exec;
+        gchar *sptr = strstr(exec, gtk_entry_get_text(entry));
+        if (sptr != NULL && sptr == exec) {
+            gtk_entry_set_text(entry, exec);
+            return;
+        }
+        ent = g_list_next(ent);
+    }
+}
+
 static void cb_entry(GtkEntry *entry, gpointer data) {
     execute_command(gtk_entry_get_text(entry));
 }
 
 static void cb_execute(GtkButton *button, gpointer data) {
     execute_command(gtk_entry_get_text(GTK_ENTRY(data)));
+}
+
+static gboolean cb_keypress(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+    if (event->keyval == GDK_KEY_Escape) {
+        gtk_main_quit();
+    } else if (event->keyval == GDK_KEY_Tab) {
+        auto_complete(GTK_ENTRY(widget));
+        return TRUE;
+    }
+    return FALSE;
 }

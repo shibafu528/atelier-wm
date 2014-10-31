@@ -36,6 +36,10 @@ static inline void free_desktop_entries(GList* list) {
     }
 }
 
+static inline DesktopEntry* get_desktop_entry(GList *list) {
+    return (DesktopEntry*)list->data;
+}
+
 GList* get_application_list();
 
 #endif
