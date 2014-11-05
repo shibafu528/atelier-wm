@@ -27,6 +27,14 @@ GC gc;
 WindowList *windows;
 Boolean terminate = FALSE;
 
+static inline int IsFrame(WindowList *wl, Window w) {
+    return wl != NULL && wl->frame == w;
+}
+
+static inline int IsClient(WindowList *wl, Window w) {
+    return wl != NULL && wl->window == w;
+}
+
 WindowList* CreateWindowList(Window frame, Window window) {
     WindowList* wl = (WindowList*)malloc(sizeof(WindowList));
     wl->prev = NULL;
@@ -85,7 +93,7 @@ void ReleaseWindow(WindowList *window) {
 
 WindowList* FindFrame(Window window) {
     WindowList* wp = windows;
-    while (wp != NULL && wp->window != window) {
+    while (wp != NULL && wp->window != window && wp->frame != window) {
         wp = wp->next;
     }
     return wp;
@@ -120,9 +128,13 @@ int main(int argc, char* argv[]) {
         Window r, p;
         Window* children;
         uint children_num;
+        XWindowAttributes attr;
         XQueryTree(disp, root, &r, &p, &children, &children_num);
         for (uint i = 0; i < children_num; i++) {
-            CatchWindow(children[i]);
+            XGetWindowAttributes(disp, children[i], &attr);
+            if (!attr.override_redirect) {
+                CatchWindow(children[i]);
+            }
         }
         if (children != NULL) {
             XFree(children);
@@ -156,9 +168,15 @@ int main(int argc, char* argv[]) {
         case Expose:
             if (event.xexpose.count == 0) {
                 wl = FindFrame(event.xexpose.window);
-                if (wl != NULL) {
+                if (IsFrame(wl, event.xexpose.window)) {
                     DrawFrame(wl);
                 }
+            }
+            break;
+        case ButtonPress:
+            wl = FindFrame(event.xany.window);
+            if (IsFrame(wl, event.xany.window)) {
+                XDestroyWindow(disp, wl->frame);
             }
             break;
         }
