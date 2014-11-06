@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
     }
 
     gc = XCreateGC(disp, root, 0, NULL);
-    XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
+    //XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
@@ -153,6 +153,9 @@ int main(int argc, char* argv[]) {
         WindowList* wl;
         XNextEvent(disp, &event);
 
+        wl = FindFrame(event.xany.window);
+        printf("Event %d, %d\n", event.type, event.xany.window);
+
         switch(event.type) {
         case MapRequest:
             XMapWindow(disp, CatchWindow(event.xmaprequest.window));
@@ -160,21 +163,16 @@ int main(int argc, char* argv[]) {
             break;
         case UnmapNotify:
         case DestroyNotify:
-            wl = FindFrame(event.xunmap.window);
             if (wl != NULL) {
                 ReleaseWindow(wl);
             }
             break;
         case Expose:
-            if (event.xexpose.count == 0) {
-                wl = FindFrame(event.xexpose.window);
-                if (IsFrame(wl, event.xexpose.window)) {
-                    DrawFrame(wl);
-                }
+            if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
+                DrawFrame(wl);
             }
             break;
         case ButtonPress:
-            wl = FindFrame(event.xany.window);
             if (IsFrame(wl, event.xany.window)) {
                 XDestroyWindow(disp, wl->frame);
             }
