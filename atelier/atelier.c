@@ -47,7 +47,6 @@ WindowList* CreateWindowList(Window frame, Window window) {
 //WindowをWMの管理下に置きフレームをつける
 Window CatchWindow(Window window) {
     XWindowAttributes attr;
-    XSetWindowAttributes setattr;
     Window frame;
     WindowList *wl;
     XGetWindowAttributes(disp, window, &attr);
@@ -59,22 +58,26 @@ Window CatchWindow(Window window) {
                                 1,
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
-    setattr.override_redirect = True;
-    XChangeWindowAttributes(disp, frame, CWOverrideRedirect, &setattr);
-    XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
+    //XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
+    XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask);
+    XChangeSaveSet(disp, window, SetModeInsert);
     XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
     if (attr.map_state == IsViewable) {
         XMapWindow(disp, window);
         XMapWindow(disp, frame);
     }
-    XChangeSaveSet(disp, window, SetModeInsert);
     XSync(disp, FALSE);
     wl = CreateWindowList(frame, window);
     if (windows == NULL) {
         windows = wl;
     } else {
-        windows->next = wl;
+        WindowList *connect_to = windows;
+        while (connect_to->next != NULL) {
+            connect_to = connect_to->next;
+        }
+        connect_to->next = wl;
     }
+    printf("CatchWindow W:%d, F:%d, WL:%d\n", window, frame, wl);
     return frame;
 }
 
@@ -149,34 +152,38 @@ int main(int argc, char* argv[]) {
     SetSignal(SIGQUIT, QuitHandler);
     SetSignal(SIGTERM, QuitHandler);
 
-    while(!terminate) {
+    XSync(disp, FALSE);
+
+    while (!terminate) {
         WindowList* wl;
-        XNextEvent(disp, &event);
+        while (XPending(disp)) {
+            XNextEvent(disp, &event);
 
-        wl = FindFrame(event.xany.window);
-        printf("Event %d, %d\n", event.type, event.xany.window);
+            wl = FindFrame(event.xany.window);
+            printf("Event %d, W:%d, WL:%d\n", event.type, event.xany.window, wl);
 
-        switch(event.type) {
-        case MapRequest:
-            XMapWindow(disp, CatchWindow(event.xmaprequest.window));
-            XMapWindow(disp, event.xmaprequest.window);
-            break;
-        case UnmapNotify:
-        case DestroyNotify:
-            if (wl != NULL) {
-                ReleaseWindow(wl);
+            switch(event.type) {
+            case MapRequest:
+                XMapWindow(disp, CatchWindow(event.xmaprequest.window));
+                XMapWindow(disp, event.xmaprequest.window);
+                break;
+            case UnmapNotify:
+            case DestroyNotify:
+                if (wl != NULL) {
+                    ReleaseWindow(wl);
+                }
+                break;
+            case Expose:
+                if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
+                    DrawFrame(wl);
+                }
+                break;
+            case ButtonPress:
+                if (IsFrame(wl, event.xany.window)) {
+                    XDestroyWindow(disp, wl->frame);
+                }
+                break;
             }
-            break;
-        case Expose:
-            if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
-                DrawFrame(wl);
-            }
-            break;
-        case ButtonPress:
-            if (IsFrame(wl, event.xany.window)) {
-                XDestroyWindow(disp, wl->frame);
-            }
-            break;
         }
     }
 
