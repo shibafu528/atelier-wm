@@ -58,8 +58,7 @@ Window CatchWindow(Window window) {
                                 1,
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
-    //XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
-    XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask);
+    XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
     XChangeSaveSet(disp, window, SetModeInsert);
     XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
     if (attr.map_state == IsViewable) {
@@ -82,16 +81,18 @@ Window CatchWindow(Window window) {
 }
 
 //Windowからフレームを除去しWMの管理から外す
-void ReleaseWindow(WindowList *window) {
-     XDestroyWindow(disp, window->frame);
-     XSync(disp, FALSE);
-     if (window->prev != NULL) {
-         window->prev->next = window->next;
-     }
-     if (window->next != NULL) {
-         window->next->prev = window->prev;
-     }
-     free(window);
+void ReleaseWindow(WindowList *window, Boolean frameDestroyed) {
+    if (!frameDestroyed) {
+        XDestroyWindow(disp, window->frame);
+    }
+    XSync(disp, FALSE);
+    if (window->prev != NULL) {
+        window->prev->next = window->next;
+    }
+    if (window->next != NULL) {
+        window->next->prev = window->prev;
+    }
+    free(window);
 }
 
 WindowList* FindFrame(Window window) {
@@ -106,7 +107,7 @@ void DrawFrame(WindowList *wl) {
     XWindowAttributes attr;
     XGetWindowAttributes(disp, wl->frame, &attr);
     
-    XSetForeground(disp, gc, BlackPixel(disp, screen));
+    XSetForeground(disp, gc, WhitePixel(disp, screen));
     XDrawRectangle(disp, wl->frame, gc, 0, 0, attr.width, attr.height);
     XFillRectangle(disp, wl->frame, gc, 0, 0, attr.width, 22);
 }
@@ -164,22 +165,30 @@ int main(int argc, char* argv[]) {
 
             switch(event.type) {
             case MapRequest:
+                printf(" -> MReq Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
                 XMapWindow(disp, CatchWindow(event.xmaprequest.window));
                 XMapWindow(disp, event.xmaprequest.window);
                 break;
             case UnmapNotify:
-            case DestroyNotify:
+                printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
                 if (wl != NULL) {
-                    ReleaseWindow(wl);
+                    ReleaseWindow(wl, FALSE);
+                }
+            case DestroyNotify:
+                printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                if (wl != NULL) {
+                    ReleaseWindow(wl, TRUE);
                 }
                 break;
             case Expose:
+                printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
                 if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
                     DrawFrame(wl);
                 }
                 break;
             case ButtonPress:
-                if (IsFrame(wl, event.xany.window)) {
+                printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
                     XDestroyWindow(disp, wl->frame);
                 }
                 break;
@@ -192,7 +201,7 @@ int main(int argc, char* argv[]) {
     //管理しているウィンドウをすべて解放する
     while (windows != NULL) {
         WindowList *next = windows->next;
-        ReleaseWindow(windows);
+        ReleaseWindow(windows, FALSE);
         windows = next;
     }
     XCloseDisplay(disp);
