@@ -59,12 +59,12 @@ Window CatchWindow(Window window) {
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
     XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
-    XChangeSaveSet(disp, window, SetModeInsert);
     XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
     if (attr.map_state == IsViewable) {
         XMapWindow(disp, window);
         XMapWindow(disp, frame);
     }
+    XChangeSaveSet(disp, window, SetModeInsert);
     XSync(disp, FALSE);
     wl = CreateWindowList(frame, window);
     if (windows == NULL) {
@@ -157,42 +157,49 @@ int main(int argc, char* argv[]) {
 
     while (!terminate) {
         WindowList* wl;
-        while (XPending(disp)) {
-            XNextEvent(disp, &event);
+        XNextEvent(disp, &event);
 
-            wl = FindFrame(event.xany.window);
-            printf("Event %d, W:%d, WL:%d\n", event.type, event.xany.window, wl);
+        wl = FindFrame(event.xany.window);
+        printf("Event %d, W:%d, WL:%d\n", event.type, event.xany.window, wl);
 
-            switch(event.type) {
-            case MapRequest:
-                printf(" -> MReq Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                XMapWindow(disp, CatchWindow(event.xmaprequest.window));
-                XMapWindow(disp, event.xmaprequest.window);
-                break;
-            case UnmapNotify:
+        switch(event.type) {
+        case MapRequest:
+            printf(" -> MReq Event\n", event.xany.window, wl, wl->window, wl->frame);
+            XMapWindow(disp, CatchWindow(event.xmaprequest.window));
+            XMapWindow(disp, event.xmaprequest.window);
+            break;
+        case UnmapNotify:
+            if (wl != NULL) {
                 printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                if (wl != NULL) {
-                    ReleaseWindow(wl, FALSE);
-                }
-            case DestroyNotify:
-                printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                if (wl != NULL) {
-                    ReleaseWindow(wl, TRUE);
-                }
-                break;
-            case Expose:
-                printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
-                if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
-                    DrawFrame(wl);
-                }
-                break;
-            case ButtonPress:
-                printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
-                if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
-                    XDestroyWindow(disp, wl->frame);
-                }
-                break;
+                ReleaseWindow(wl, FALSE);
+            } else {
+                printf(" -> Unmap Event, Skip.\n");
             }
+            break;
+        case DestroyNotify:
+            if (wl != NULL) {
+                printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                ReleaseWindow(wl, TRUE);
+            } else {
+                printf(" -> Destroy Event, Skip.\n");
+            }
+            break;
+        case Expose:
+            if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
+                printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
+                DrawFrame(wl);
+            } else {
+                printf(" -> Expose Event, Skip.\n");
+            }
+            break;
+        case ButtonPress:
+            if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
+                printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                XDestroyWindow(disp, wl->frame);
+            } else {
+                printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
+            }
+            break;
         }
     }
 
@@ -206,4 +213,4 @@ int main(int argc, char* argv[]) {
     }
     XCloseDisplay(disp);
     return 0;
-}
+} 
