@@ -65,7 +65,7 @@ Window CatchWindow(Window window) {
         XMapWindow(disp, frame);
     }
     XChangeSaveSet(disp, window, SetModeInsert);
-    XSync(disp, FALSE);
+    XFlush(disp);
     wl = CreateWindowList(frame, window);
     if (windows == NULL) {
         windows = wl;
@@ -85,7 +85,7 @@ void ReleaseWindow(WindowList *window, Boolean frameDestroyed) {
     if (!frameDestroyed) {
         XDestroyWindow(disp, window->frame);
     }
-    XSync(disp, FALSE);
+    XFlush(disp);
     if (window->prev != NULL) {
         window->prev->next = window->next;
     }
@@ -110,6 +110,19 @@ void DrawFrame(WindowList *wl) {
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     XDrawRectangle(disp, wl->frame, gc, 0, 0, attr.width, attr.height);
     XFillRectangle(disp, wl->frame, gc, 0, 0, attr.width, 22);
+}
+
+void ConfigureRequestHandler(XConfigureRequestEvent event) {
+    XWindowChanges change;
+    change.x = event.x;
+    change.y = event.y;
+    change.width = event.width;
+    change.height = event.height;
+    change.border_width = event.border_width;
+    change.sibling = event.above;
+    change.stack_mode = event.detail;
+    XConfigureWindow(disp, event.window, event.value_mask, &change);
+    XFlush(disp);
 }
 
 Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
@@ -146,14 +159,14 @@ int main(int argc, char* argv[]) {
     }
 
     gc = XCreateGC(disp, root, 0, NULL);
-    //XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
+    XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
     SetSignal(SIGQUIT, QuitHandler);
     SetSignal(SIGTERM, QuitHandler);
 
-    XSync(disp, FALSE);
+    XFlush(disp);
 
     while (!terminate) {
         WindowList* wl;
@@ -164,7 +177,7 @@ int main(int argc, char* argv[]) {
 
         switch(event.type) {
         case MapRequest:
-            printf(" -> MReq Event\n", event.xany.window, wl, wl->window, wl->frame);
+            printf(" -> MReq Event\n");
             XMapWindow(disp, CatchWindow(event.xmaprequest.window));
             XMapWindow(disp, event.xmaprequest.window);
             break;
@@ -184,6 +197,10 @@ int main(int argc, char* argv[]) {
                 printf(" -> Destroy Event, Skip.\n");
             }
             break;
+        case ConfigureRequest:
+            printf(" -> ConfigReq Event\n");
+            ConfigureRequestHandler(event.xconfigurerequest);
+            break;
         case Expose:
             if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
                 printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
@@ -195,7 +212,7 @@ int main(int argc, char* argv[]) {
         case ButtonPress:
             if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
-                XDestroyWindow(disp, wl->frame);
+                XKillClient(disp, wl->window);
             } else {
                 printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
             }
