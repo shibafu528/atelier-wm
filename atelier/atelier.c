@@ -64,8 +64,7 @@ Window CatchWindow(Window window) {
         XMapWindow(disp, window);
         XMapWindow(disp, frame);
     }
-    XChangeSaveSet(disp, window, SetModeInsert);
-    XFlush(disp);
+    XAddToSaveSet(disp, window);
     wl = CreateWindowList(frame, window);
     if (windows == NULL) {
         windows = wl;
@@ -75,6 +74,7 @@ Window CatchWindow(Window window) {
             connect_to = connect_to->next;
         }
         connect_to->next = wl;
+        wl->prev = connect_to;
     }
     printf("CatchWindow W:%d, F:%d, WL:%d\n", window, frame, wl);
     return frame;
@@ -85,7 +85,10 @@ void ReleaseWindow(WindowList *window, Boolean frameDestroyed) {
     if (!frameDestroyed) {
         XDestroyWindow(disp, window->frame);
     }
-    XFlush(disp);
+    XSync(disp, False);
+    if (windows == window) {
+        windows = window->next;
+    }
     if (window->prev != NULL) {
         window->prev->next = window->next;
     }
@@ -122,7 +125,6 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
     change.sibling = event.above;
     change.stack_mode = event.detail;
     XConfigureWindow(disp, event.window, event.value_mask, &change);
-    XFlush(disp);
 }
 
 Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
@@ -166,7 +168,7 @@ int main(int argc, char* argv[]) {
     SetSignal(SIGQUIT, QuitHandler);
     SetSignal(SIGTERM, QuitHandler);
 
-    XFlush(disp);
+    XSync(disp, False);
 
     while (!terminate) {
         WindowList* wl;
@@ -218,6 +220,8 @@ int main(int argc, char* argv[]) {
             }
             break;
         }
+
+        XSync(disp, False);
     }
 
     XFreeGC(disp, gc);
