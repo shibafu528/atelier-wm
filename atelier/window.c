@@ -1,6 +1,7 @@
 #include <X11/Xlib.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "window.h"
 
 #define FRAME_BORDER 1
@@ -89,9 +90,18 @@ WindowList* FindFrame(Window window) {
 
 void DrawFrame(WindowList *wl) {
     XWindowAttributes attr;
+    char *window_name;
     XGetWindowAttributes(disp, wl->frame, &attr);
+    XFetchName(disp, wl->frame, &window_name);
+    printf("window_name: %s", window_name);
     
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     XDrawRectangle(disp, wl->frame, gc, 0, 0, attr.width, attr.height);
     XFillRectangle(disp, wl->frame, gc, 0, 0, attr.width, 22);
+
+    if (window_name != NULL) {
+        XSetForeground(disp, gc, BlackPixel(disp, screen));
+        XDrawString(disp, wl->frame, gc, 2, 2, window_name, strlen(window_name));
+        XFree(window_name);
+    }
 }
