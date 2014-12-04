@@ -3,11 +3,10 @@
 #include <stdlib.h>
 #include "window.h"
 
-extern Display *disp;
-extern Screen screen;
-extern Window root;
-extern GC gc;
-WindowList *windows;
+#define FRAME_BORDER 1
+#define FRAME_TITLE_HEIGHT 22
+
+WindowList *windows = NULL;
 
 WindowList* CreateWindowList(Window frame, Window window) {
     WindowList* wl = (WindowList*)malloc(sizeof(WindowList));
@@ -70,6 +69,14 @@ void ReleaseWindow(WindowList *window, Boolean frameDestroyed) {
         window->next->prev = window->prev;
     }
     free(window);
+}
+
+void ReleaseAllWindows() {
+    while (windows != NULL) {
+        WindowList *next = windows->next;
+        ReleaseWindow(windows, FALSE);
+        windows = next;
+    }
 }
 
 WindowList* FindFrame(Window window) {

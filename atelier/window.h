@@ -28,6 +28,8 @@ Window CatchWindow(Window window);
 //Windowからフレームを除去しWMの管理から外す
 void ReleaseWindow(WindowList *window, Boolean frameDestroyed);
 
+void ReleaseAllWindows();
+
 WindowList* FindFrame(Window window);
 
 void DrawFrame(WindowList *wl);

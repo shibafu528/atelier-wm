@@ -11,8 +11,6 @@ Window root;
 GC gc;
 Boolean terminate = FALSE;
 
-extern WindowList *windows;
-
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
     XWindowChanges change;
     change.x = event.x;
@@ -25,11 +23,11 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
     XConfigureWindow(disp, event.window, event.value_mask, &change);
 }
 
-Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
+static Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
     return signal(signame, sighandle) == SIG_ERR ? FALSE : TRUE;
 }
 
-void QuitHandler(int signum) {
+static void QuitHandler(int signum) {
     fprintf(stderr, "term! :%d\n", signum);
     terminate = TRUE;
 }
@@ -37,7 +35,6 @@ void QuitHandler(int signum) {
 int main(int argc, char* argv[]) {
     XEvent event;
 
-    windows = NULL;
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
 
@@ -125,11 +122,7 @@ int main(int argc, char* argv[]) {
     XFreeGC(disp, gc);
 
     //管理しているウィンドウをすべて解放する
-    while (windows != NULL) {
-        WindowList *next = windows->next;
-        ReleaseWindow(windows, FALSE);
-        windows = next;
-    }
+    ReleaseAllWindows();
     XCloseDisplay(disp);
     return 0;
 } 

@@ -7,7 +7,9 @@
 #define TRUE 1
 #define FALSE 0
 
-#define FRAME_BORDER 1
-#define FRAME_TITLE_HEIGHT 22
+extern Display *disp;
+extern Screen screen;
+extern Window root;
+extern GC gc;
 
 #endif
