@@ -107,6 +107,9 @@ int main(int argc, char* argv[]) {
             }
             break;
         case ButtonPress:
+            if (wl != NULL) {
+                XRaiseWindow(disp, wl->frame);
+            }
             if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
                 XKillClient(disp, wl->window);
