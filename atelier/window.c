@@ -9,6 +9,7 @@
 #define FRAME_BORDER 1
 #define FRAME_TITLE_HEIGHT 22
 
+XFontSet fontset;
 WindowList *windows = NULL;
 
 WindowList* CreateWindowList(Window frame, Window window) {
@@ -122,6 +123,6 @@ void DrawFrame(WindowList *wl) {
             }
             title[511] = '\0';
         }
-        XDrawString(disp, wl->frame, gc, 2, 16, title, strlen(title));
+        XmbDrawString(disp, wl->frame, fontset, gc, 2, 16, title, strlen(title));
     }
 }

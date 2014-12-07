@@ -1,4 +1,5 @@
 #include <X11/Xlib.h>
+#include <X11/Xlocale.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,8 @@ Screen screen;
 Window root;
 GC gc;
 Boolean terminate = FALSE;
+
+extern XFontSet fontset;
 
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
     XWindowChanges change;
@@ -38,6 +41,13 @@ int main(int argc, char* argv[]) {
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
 
+    if (setlocale(LC_CTYPE, "") == NULL) {
+        return 1;
+    }
+    if (!XSupportsLocale()) {
+        return 1;
+    }
+
     {
         Window r, p;
         Window* children;
@@ -58,6 +68,23 @@ int main(int argc, char* argv[]) {
     gc = XCreateGC(disp, root, 0, NULL);
     XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
 
+    {
+        int missing_count;
+        char** missing_list;
+        char* def_string;
+        fontset = XCreateFontSet(disp,
+                                 "-*-fixed-medium-r-normal--16-*-*-*",
+                                 &missing_list,
+                                 &missing_count,
+                                 &def_string);
+
+        if (fontset == NULL) {
+            return 1;
+        }
+
+        XFreeStringList(missing_list);
+    }
+    
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
     SetSignal(SIGQUIT, QuitHandler);
