@@ -91,12 +91,9 @@ WindowList* FindFrame(Window window) {
 }
 
 void DrawFrame(WindowList *wl) {
-    static Atom net_wm_name;
+    Atom net_wm_name = XInternAtom(disp, "_NET_WM_NAME", False);
     XWindowAttributes attr;
     XGetWindowAttributes(disp, wl->frame, &attr);
-    if (!net_wm_name) {
-        net_wm_name = XInternAtom(disp, "_NET_WM_NAME", False);
-    }
     
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     XDrawRectangle(disp, wl->frame, gc, 0, 0, attr.width, attr.height);
@@ -125,6 +122,6 @@ void DrawFrame(WindowList *wl) {
             }
             title[511] = '\0';
         }
-        XDrawString(disp, wl->frame, gc, 2, 16, title, 511);
+        XDrawString(disp, wl->frame, gc, 2, 16, title, strlen(title));
     }
 }
