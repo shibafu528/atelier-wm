@@ -1,6 +1,9 @@
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xatom.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "window.h"
 
 #define FRAME_BORDER 1
@@ -88,10 +91,37 @@ WindowList* FindFrame(Window window) {
 }
 
 void DrawFrame(WindowList *wl) {
+    Atom net_wm_name = XInternAtom(disp, "_NET_WM_NAME", False);
     XWindowAttributes attr;
     XGetWindowAttributes(disp, wl->frame, &attr);
     
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     XDrawRectangle(disp, wl->frame, gc, 0, 0, attr.width, attr.height);
     XFillRectangle(disp, wl->frame, gc, 0, 0, attr.width, 22);
+
+    XSetForeground(disp, gc, BlackPixel(disp, screen));
+    {
+        char title[512] = {};
+        XTextProperty prop;
+        title[0] = '\0';
+        XGetTextProperty(disp, wl->window, &prop, net_wm_name);
+        if (prop.nitems == 0) {
+            XGetWMName(disp, wl->window, &prop);
+        }
+        if (prop.nitems > 0 && prop.value) {
+            if (prop.encoding == XA_STRING) {
+                strncpy(title, (char*) prop.value, 511);
+            } else {
+                char **l = NULL;
+                int count;
+                XmbTextPropertyToTextList(disp, &prop, &l, &count);
+                if (count > 0 && *l) {
+                    strncpy(title, *l, 511);
+                }
+                XFreeStringList(l);
+            }
+            title[511] = '\0';
+        }
+        XDrawString(disp, wl->frame, gc, 2, 16, title, strlen(title));
+    }
 }
