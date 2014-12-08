@@ -35,6 +35,7 @@ static void QuitHandler(int signum) {
 int main(int argc, char* argv[]) {
     XEvent event;
     KeyCode tabKey;
+    WindowList* lastRaised = NULL;
 
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
@@ -49,6 +50,7 @@ int main(int argc, char* argv[]) {
             XGetWindowAttributes(disp, children[i], &attr);
             if (!attr.override_redirect) {
                 CatchWindow(children[i]);
+                lastRaised = FindFrame(children[i]);
             }
         }
         if (children != NULL) {
@@ -82,10 +84,12 @@ int main(int argc, char* argv[]) {
             printf(" -> MReq Event\n");
             XMapWindow(disp, CatchWindow(event.xmaprequest.window));
             XMapWindow(disp, event.xmaprequest.window);
+            lastRaised = FindFrame(event.xmaprequest.window);
             break;
         case UnmapNotify:
             if (wl != NULL) {
                 printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
                 ReleaseWindow(wl, FALSE);
             } else {
                 printf(" -> Unmap Event, Skip.\n");
@@ -94,6 +98,7 @@ int main(int argc, char* argv[]) {
         case DestroyNotify:
             if (wl != NULL) {
                 printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
                 ReleaseWindow(wl, TRUE);
             } else {
                 printf(" -> Destroy Event, Skip.\n");
@@ -113,6 +118,7 @@ int main(int argc, char* argv[]) {
             break;
         case ButtonPress:
             if (wl != NULL) {
+                lastRaised = wl;
                 XRaiseWindow(disp, wl->frame);
             }
             if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
@@ -123,14 +129,19 @@ int main(int argc, char* argv[]) {
             }
             break;
         case KeyPress:
-            wl = FindFrame(event.xkey.subwindow);
-            if (wl != NULL && event.xkey.keycode == tabKey) {
-                printf(" -> KeyPress Event, SW:%d, LW:%d, LF:%d\n", event.xkey.subwindow, event.xany.window, wl, wl->window, wl->frame);
-                printf(" -> next: %d, first: %d\n", wl->next, GetFirstWindow(wl));
-                XRaiseWindow(disp, wl->next != NULL? wl->next->frame : GetFirstWindow(wl)->frame);
+            if (event.xkey.keycode == tabKey) {
+                printf(" -> KeyPress Event, SW:%d, LW:%d\n", event.xkey.subwindow, event.xany.window);
+                if (lastRaised == NULL) {
+                    lastRaised = FindFrame(event.xkey.subwindow);
+                }
+                if (lastRaised != NULL) {
+                    lastRaised = lastRaised->next? lastRaised->next : GetFirstWindow(lastRaised);
+                    XRaiseWindow(disp, lastRaised->frame);
+                }
             } else {
                 printf(" -> KeyPress Event SW:%d , Skip.\n", event.xkey.subwindow);
             }
+            break;
         }
 
         XSync(disp, False);
