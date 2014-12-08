@@ -20,6 +20,13 @@ static inline int IsClient(WindowList *wl, Window w) {
     return wl != NULL && wl->window == w;
 }
 
+static inline WindowList* GetFirstWindow(WindowList *wl) {
+    while (wl->prev) {
+        wl = wl->prev;
+    }
+    return wl;
+}
+
 WindowList* CreateWindowList(Window frame, Window window);
 
 //WindowをWMの管理下に置きフレームをつける

@@ -34,6 +34,7 @@ static void QuitHandler(int signum) {
 
 int main(int argc, char* argv[]) {
     XEvent event;
+    KeyCode tabKey;
 
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
@@ -57,6 +58,10 @@ int main(int argc, char* argv[]) {
 
     gc = XCreateGC(disp, root, 0, NULL);
     XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
+
+    //ウィンドウ切り替えのパッシブグラブ
+    tabKey = XKeysymToKeycode(disp, XStringToKeysym("Tab"));
+    XGrabKey(disp, tabKey, Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
@@ -117,6 +122,15 @@ int main(int argc, char* argv[]) {
                 printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
             }
             break;
+        case KeyPress:
+            wl = FindFrame(event.xkey.subwindow);
+            if (wl != NULL && event.xkey.keycode == tabKey) {
+                printf(" -> KeyPress Event, SW:%d, LW:%d, LF:%d\n", event.xkey.subwindow, event.xany.window, wl, wl->window, wl->frame);
+                printf(" -> next: %d, first: %d\n", wl->next, GetFirstWindow(wl));
+                XRaiseWindow(disp, wl->next != NULL? wl->next->frame : GetFirstWindow(wl)->frame);
+            } else {
+                printf(" -> KeyPress Event SW:%d , Skip.\n", event.xkey.subwindow);
+            }
         }
 
         XSync(disp, False);
