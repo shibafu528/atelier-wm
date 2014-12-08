@@ -27,6 +27,21 @@ static inline WindowList* GetFirstWindow(WindowList *wl) {
     return wl;
 }
 
+static inline WindowList* GetLastWindow(WindowList *wl) {
+    while (wl->next) {
+        wl = wl->next;
+    }
+    return wl;
+}
+
+static inline WindowList* GetPrevWindow(WindowList *wl) {
+    return wl->prev? wl->prev : GetLastWindow(wl);
+}
+
+static inline WindowList* GetNextWindow(WindowList *wl) {
+    return wl->next? wl->next : GetFirstWindow(wl);
+}
+
 WindowList* CreateWindowList(Window frame, Window window);
 
 //WindowをWMの管理下に置きフレームをつける

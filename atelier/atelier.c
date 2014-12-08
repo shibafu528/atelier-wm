@@ -64,6 +64,7 @@ int main(int argc, char* argv[]) {
     //ウィンドウ切り替えのパッシブグラブ
     tabKey = XKeysymToKeycode(disp, XStringToKeysym("Tab"));
     XGrabKey(disp, tabKey, Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(disp, tabKey, Mod1Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
@@ -135,7 +136,7 @@ int main(int argc, char* argv[]) {
                     lastRaised = FindFrame(event.xkey.subwindow);
                 }
                 if (lastRaised != NULL) {
-                    lastRaised = lastRaised->next? lastRaised->next : GetFirstWindow(lastRaised);
+                    lastRaised = event.xkey.state == Mod1Mask? GetNextWindow(lastRaised) : GetPrevWindow(lastRaised);
                     XRaiseWindow(disp, lastRaised->frame);
                 }
             } else {
