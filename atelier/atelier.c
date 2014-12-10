@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "atelier.h"
 #include "window.h"
 
@@ -39,6 +40,8 @@ int main(int argc, char* argv[]) {
     XEvent event;
     KeyCode tabKey;
     WindowList* lastRaised = NULL;
+    Atom wm_protocols;
+    Atom wm_delete_window;
 
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
@@ -92,6 +95,10 @@ int main(int argc, char* argv[]) {
     tabKey = XKeysymToKeycode(disp, XStringToKeysym("Tab"));
     XGrabKey(disp, tabKey, Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(disp, tabKey, Mod1Mask | ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+
+    //Atomの取得
+    wm_protocols = XInternAtom(disp, "WM_PROTOCOLS", True);
+    wm_delete_window = XInternAtom(disp, "WM_DELETE_WINDOW", True);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
@@ -163,8 +170,30 @@ int main(int argc, char* argv[]) {
                 XRaiseWindow(disp, wl->frame);
             }
             if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
+                Atom *protocols;
+                int protocols_num;
+                XEvent delete_event;
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
-                XKillClient(disp, wl->window);
+                XGetWMProtocols(disp, wl->window, &protocols, &protocols_num);
+                printf(" -> WM_PROTOCOLS * %d\n", protocols_num);
+                for (int i = 0; i < protocols_num; i++) {
+                    if (protocols[i] == wm_delete_window) {
+                        printf(" -> Found WM_DELETE_WINDOW\n");
+                        delete_event.xclient.type = ClientMessage;
+                        delete_event.xclient.window = wl->window;
+                        delete_event.xclient.message_type = wm_protocols;
+                        delete_event.xclient.format = 32;
+                        delete_event.xclient.data.l[0] = wm_delete_window;
+                        delete_event.xclient.data.l[1] = CurrentTime;
+                        break;
+                    }
+                }
+                XFree(protocols);
+                if (delete_event.xclient.type == ClientMessage) {
+                    XSendEvent(disp, wl->window, False, NoEventMask, &delete_event);
+                } else {
+                    XKillClient(disp, wl->window);
+                }
             } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
                 XGrabPointer(disp, event.xbutton.window, True,
