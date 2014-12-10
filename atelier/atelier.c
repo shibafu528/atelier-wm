@@ -101,6 +101,8 @@ int main(int argc, char* argv[]) {
     XSync(disp, False);
 
     while (!terminate) {
+        static XButtonEvent move_start;
+        static XWindowAttributes move_attr;
         WindowList* wl;
         XNextEvent(disp, &event);
 
@@ -144,6 +146,17 @@ int main(int argc, char* argv[]) {
                 printf(" -> Expose Event, Skip.\n");
             }
             break;
+        case MotionNotify:
+            while (XCheckTypedEvent(disp, MotionNotify, &event));
+            {
+                int xdiff, ydiff;
+                xdiff = event.xbutton.x_root - move_start.x_root;
+                ydiff = event.xbutton.y_root - move_start.y_root;
+                XMoveWindow(disp, event.xmotion.window,
+                            move_attr.x + xdiff,
+                            move_attr.y + ydiff);
+            }
+            break;
         case ButtonPress:
             if (wl != NULL) {
                 lastRaised = wl;
@@ -152,9 +165,20 @@ int main(int argc, char* argv[]) {
             if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
                 XKillClient(disp, wl->window);
+            } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
+                printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                XGrabPointer(disp, event.xbutton.window, True,
+                             PointerMotionMask | ButtonReleaseMask,
+                             GrabModeAsync, GrabModeAsync,
+                             None, None, CurrentTime);
+                XGetWindowAttributes(disp, event.xbutton.window, &move_attr);
+                move_start = event.xbutton;
             } else {
                 printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
             }
+            break;
+        case ButtonRelease:
+            XUngrabPointer(disp, CurrentTime);
             break;
         case KeyPress:
             if (event.xkey.keycode == tabKey) {
