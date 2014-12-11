@@ -27,6 +27,11 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
     XConfigureWindow(disp, event.window, event.value_mask, &change);
 }
 
+void RaiseWindow(WindowList *wl) {
+    XRaiseWindow(disp, wl->frame);
+    XSetInputFocus(disp, wl->window, RevertToParent, CurrentTime);
+}
+
 static Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
     return signal(signame, sighandle) == SIG_ERR ? FALSE : TRUE;
 }
@@ -167,7 +172,7 @@ int main(int argc, char* argv[]) {
         case ButtonPress:
             if (wl != NULL) {
                 lastRaised = wl;
-                XRaiseWindow(disp, wl->frame);
+                RaiseWindow(wl);
             }
             if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
                 Atom *protocols;
@@ -217,7 +222,7 @@ int main(int argc, char* argv[]) {
                 }
                 if (lastRaised != NULL) {
                     lastRaised = event.xkey.state == Mod1Mask? GetNextWindow(lastRaised) : GetPrevWindow(lastRaised);
-                    XRaiseWindow(disp, lastRaised->frame);
+                    RaiseWindow(lastRaised);
                 }
             } else {
                 printf(" -> KeyPress Event SW:%d , Skip.\n", event.xkey.subwindow);
