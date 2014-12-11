@@ -28,6 +28,7 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
 }
 
 void RaiseWindow(WindowList *wl) {
+    if (wl == NULL) return;
     XRaiseWindow(disp, wl->frame);
     XSetInputFocus(disp, wl->window, RevertToParent, CurrentTime);
 }
@@ -133,6 +134,7 @@ int main(int argc, char* argv[]) {
                 printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
                 lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
                 ReleaseWindow(wl, FALSE);
+                RaiseWindow(lastRaised);
             } else {
                 printf(" -> Unmap Event, Skip.\n");
             }
@@ -142,6 +144,7 @@ int main(int argc, char* argv[]) {
                 printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
                 lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
                 ReleaseWindow(wl, TRUE);
+                RaiseWindow(lastRaised);
             } else {
                 printf(" -> Destroy Event, Skip.\n");
             }
