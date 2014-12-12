@@ -27,11 +27,12 @@ Window CatchWindow(Window window) {
     Window frame;
     WindowList *wl;
     XGetWindowAttributes(disp, window, &attr);
+    XAddToSaveSet(disp, window);
     frame = XCreateSimpleWindow(disp, root,
                                 attr.x,
                                 attr.y,
-                                attr.width + FRAME_BORDER * 2,
-                                attr.height + FRAME_TITLE_HEIGHT + 1,
+                                attr.width + FRAME_BORDER * 2 + attr.border_width * 2,
+                                attr.height + FRAME_TITLE_HEIGHT + 1 + attr.border_width * 2,
                                 1,
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
@@ -41,7 +42,6 @@ Window CatchWindow(Window window) {
         XMapWindow(disp, window);
         XMapWindow(disp, frame);
     }
-    XAddToSaveSet(disp, window);
     wl = CreateWindowList(frame, window);
     if (windows == NULL) {
         windows = wl;
