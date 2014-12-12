@@ -15,8 +15,12 @@ Boolean terminate = FALSE;
 
 extern XFontSet fontset;
 
+#define RESIZE_THRESHOLD 2
+
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
+    WindowList *wl;
     XWindowChanges change;
+    wl = FindFrame(event.window);
     change.x = event.x;
     change.y = event.y;
     change.width = event.width;
@@ -31,6 +35,10 @@ void RaiseWindow(WindowList *wl) {
     if (wl == NULL) return;
     XRaiseWindow(disp, wl->frame);
     XSetInputFocus(disp, wl->window, RevertToParent, CurrentTime);
+}
+
+static inline int Max(int a, int b) {
+    return a > b ? a : b;
 }
 
 static Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
@@ -165,12 +173,27 @@ int main(int argc, char* argv[]) {
         case MotionNotify:
             while (XCheckTypedEvent(disp, MotionNotify, &event));
             {
-                int xdiff, ydiff;
-                xdiff = event.xbutton.x_root - move_start.x_root;
-                ydiff = event.xbutton.y_root - move_start.y_root;
-                XMoveWindow(disp, event.xmotion.window,
-                            move_attr.x + xdiff,
-                            move_attr.y + ydiff);
+                int x, y, width, height;
+                x = move_attr.x;
+                y = move_attr.y;
+                width = move_attr.width;
+                height = move_attr.height;
+                
+                if (move_start.x < RESIZE_THRESHOLD ||
+                    move_start.y < RESIZE_THRESHOLD ||
+                    move_start.x > move_attr.width - RESIZE_THRESHOLD ||
+                    move_start.y > move_attr.height - RESIZE_THRESHOLD) {
+                    // Resize
+                    width += event.xbutton.x_root - move_start.x_root;
+                    height += event.xbutton.y_root - move_start.y_root;
+                } else {
+                    // Move
+                    x += event.xbutton.x_root - move_start.x_root;
+                    y += event.xbutton.y_root - move_start.y_root;
+                }
+
+                XMoveResizeWindow(disp, event.xmotion.window,
+                                  x, y, Max(1, width), Max(1, height));
             }
             break;
         case ButtonPress:
@@ -205,6 +228,7 @@ int main(int argc, char* argv[]) {
                 }
             } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                printf(" -> X: %d, Y: %d\n", event.xbutton.x, event.xbutton.y);
                 XGrabPointer(disp, event.xbutton.window, True,
                              PointerMotionMask | ButtonReleaseMask,
                              GrabModeAsync, GrabModeAsync,
