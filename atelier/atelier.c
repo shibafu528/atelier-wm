@@ -128,6 +128,7 @@ int main(int argc, char* argv[]) {
             XMapWindow(disp, CatchWindow(event.xmaprequest.window));
             XMapWindow(disp, event.xmaprequest.window);
             lastRaised = FindFrame(event.xmaprequest.window);
+            RaiseWindow(lastRaised);
             break;
         case UnmapNotify:
             if (wl != NULL) {
