@@ -17,11 +17,11 @@ extern XFontSet fontset;
 
 typedef enum _GrabbedEdge GrabbedEdge;
 enum _GrabbedEdge {
-    EDGE_NONE,
-    EDGE_TOP,
-    EDGE_LEFT,
-    EDGE_RIGHT,
-    EDGE_BOTTOM
+    EDGE_NONE   = 0,
+    EDGE_TOP    = 1,
+    EDGE_LEFT   = 1 << 1,
+    EDGE_RIGHT  = 1 << 2,
+    EDGE_BOTTOM = 1 << 3
 };
 
 #define RESIZE_THRESHOLD 4
@@ -49,11 +49,12 @@ void RaiseWindow(WindowList *wl) {
 }
 
 static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes attr) {
-    if      (start.y < RESIZE_THRESHOLD)               return EDGE_TOP;
-    else if (start.x < RESIZE_THRESHOLD)               return EDGE_LEFT;
-    else if (start.x > attr.width  - RESIZE_THRESHOLD) return EDGE_RIGHT;
-    else if (start.y > attr.height - RESIZE_THRESHOLD) return EDGE_BOTTOM;
-    else                                               return EDGE_NONE;
+    GrabbedEdge edge = EDGE_NONE;
+    if (start.y < RESIZE_THRESHOLD)               edge |= EDGE_TOP;
+    if (start.x < RESIZE_THRESHOLD)               edge |= EDGE_LEFT;
+    if (start.x > attr.width  - RESIZE_THRESHOLD) edge |= EDGE_RIGHT;
+    if (start.y > attr.height - RESIZE_THRESHOLD) edge |= EDGE_BOTTOM;
+    return edge;
 }
 
 static inline int Max(int a, int b) {
@@ -198,27 +199,27 @@ int main(int argc, char* argv[]) {
                 y = move_attr.y;
                 width = move_attr.width;
                 height = move_attr.height;
-                
-                switch (move_edge) {
-                case EDGE_TOP:
+
+                // Resize
+                if (move_edge & EDGE_TOP) {
                     y += event.xbutton.y_root - move_start.y_root;
                     height -= event.xbutton.y_root - move_start.y_root;
-                    break;
-                case EDGE_BOTTOM:
+                }
+                if (move_edge & EDGE_BOTTOM) {
                     height += event.xbutton.y_root - move_start.y_root;
-                    break;
-                case EDGE_LEFT:
+                }
+                if (move_edge & EDGE_LEFT) {
                     x += event.xbutton.x_root - move_start.x_root;
                     width -= event.xbutton.x_root - move_start.x_root;
-                    break;
-                case EDGE_RIGHT:
+                }
+                if (move_edge & EDGE_RIGHT) {
                     width += event.xbutton.x_root - move_start.x_root;
-                    break;
-                default:
-                    // Move
+                }
+
+                // Move
+                if (!move_edge) {
                     x += event.xbutton.x_root - move_start.x_root;
                     y += event.xbutton.y_root - move_start.y_root;
-                    break;
                 }
                 
                 XMoveResizeWindow(disp, event.xmotion.window,
