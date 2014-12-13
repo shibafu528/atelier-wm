@@ -36,6 +36,7 @@ Window CatchWindow(Window window) {
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
     XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
+    XSelectInput(disp, window, PropertyChangeMask);
     XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
     if (attr.map_state == IsViewable) {
         XMapWindow(disp, window);

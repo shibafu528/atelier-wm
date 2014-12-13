@@ -48,6 +48,8 @@ int main(int argc, char* argv[]) {
     WindowList* lastRaised = NULL;
     Atom wm_protocols;
     Atom wm_delete_window;
+    Atom net_wm_name;
+    Atom wm_name;
 
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
@@ -105,6 +107,8 @@ int main(int argc, char* argv[]) {
     //Atomの取得
     wm_protocols = XInternAtom(disp, "WM_PROTOCOLS", True);
     wm_delete_window = XInternAtom(disp, "WM_DELETE_WINDOW", True);
+    wm_name = XInternAtom(disp, "WM_NAME", True);
+    net_wm_name = XInternAtom(disp, "_NET_WM_NAME", True);
 
     //シグナルをキャッチする
     SetSignal(SIGINT, QuitHandler);
@@ -152,6 +156,12 @@ int main(int argc, char* argv[]) {
         case ConfigureRequest:
             printf(" -> ConfigReq Event\n");
             ConfigureRequestHandler(event.xconfigurerequest);
+            break;
+        case PropertyNotify:
+            if (IsClient(wl, event.xany.window) && (event.xproperty.atom == net_wm_name || event.xproperty.atom == wm_name)) {
+                printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                DrawFrame(wl);
+            }
             break;
         case Expose:
             if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
