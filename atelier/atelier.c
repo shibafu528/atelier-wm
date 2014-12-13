@@ -15,6 +15,15 @@ Boolean terminate = FALSE;
 
 extern XFontSet fontset;
 
+typedef enum _GrabbedEdge GrabbedEdge;
+enum _GrabbedEdge {
+    EDGE_NONE,
+    EDGE_TOP,
+    EDGE_LEFT,
+    EDGE_RIGHT,
+    EDGE_BOTTOM
+};
+
 #define RESIZE_THRESHOLD 4
 
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
@@ -35,6 +44,14 @@ void RaiseWindow(WindowList *wl) {
     if (wl == NULL) return;
     XRaiseWindow(disp, wl->frame);
     XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
+}
+
+static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes attr) {
+    if      (start.y < RESIZE_THRESHOLD)               return EDGE_TOP;
+    else if (start.x < RESIZE_THRESHOLD)               return EDGE_LEFT;
+    else if (start.x > attr.width  - RESIZE_THRESHOLD) return EDGE_RIGHT;
+    else if (start.y > attr.height - RESIZE_THRESHOLD) return EDGE_BOTTOM;
+    else                                               return EDGE_NONE;
 }
 
 static inline int Max(int a, int b) {
@@ -124,6 +141,7 @@ int main(int argc, char* argv[]) {
     while (!terminate) {
         static XButtonEvent move_start;
         static XWindowAttributes move_attr;
+        static GrabbedEdge move_edge;
         WindowList* wl;
         XNextEvent(disp, &event);
 
@@ -179,19 +197,24 @@ int main(int argc, char* argv[]) {
                 width = move_attr.width;
                 height = move_attr.height;
                 
-                if (move_start.x < RESIZE_THRESHOLD ||
-                    move_start.y < RESIZE_THRESHOLD ||
-                    move_start.x > move_attr.width - RESIZE_THRESHOLD ||
-                    move_start.y > move_attr.height - RESIZE_THRESHOLD) {
-                    // Resize
-                    width += event.xbutton.x_root - move_start.x_root;
+                switch (move_edge) {
+                case EDGE_TOP:
+                case EDGE_BOTTOM:
+                    // Resize Height
                     height += event.xbutton.y_root - move_start.y_root;
-                } else {
+                    break;
+                case EDGE_LEFT:
+                case EDGE_RIGHT:
+                    // Resize Width
+                    width += event.xbutton.x_root - move_start.x_root;
+                    break;
+                default:
                     // Move
                     x += event.xbutton.x_root - move_start.x_root;
                     y += event.xbutton.y_root - move_start.y_root;
+                    break;
                 }
-
+                
                 XMoveResizeWindow(disp, event.xmotion.window,
                                   x, y, Max(1, width), Max(1, height));
             }
@@ -235,6 +258,8 @@ int main(int argc, char* argv[]) {
                              None, None, CurrentTime);
                 XGetWindowAttributes(disp, event.xbutton.window, &move_attr);
                 move_start = event.xbutton;
+                move_edge = GetGrabbedEdge(move_start, move_attr);
+                printf(" -> Edge: %d\n", move_edge);
             } else {
                 printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
             }
