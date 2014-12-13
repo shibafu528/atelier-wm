@@ -54,6 +54,8 @@ void ReleaseAllWindows();
 
 WindowList* FindFrame(Window window);
 
+void FitFrame(WindowList *wl);
+
 void DrawFrame(WindowList *wl);
 
 #endif

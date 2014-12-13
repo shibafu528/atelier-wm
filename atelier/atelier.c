@@ -217,6 +217,7 @@ int main(int argc, char* argv[]) {
                 
                 XMoveResizeWindow(disp, event.xmotion.window,
                                   x, y, Max(1, width), Max(1, height));
+                FitFrame(wl);
             }
             break;
         case ButtonPress:

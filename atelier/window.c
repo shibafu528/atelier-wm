@@ -91,6 +91,17 @@ WindowList* FindFrame(Window window) {
     return wp;
 }
 
+void FitFrame(WindowList *wl) {
+    XWindowAttributes frame_attr;
+    XWindowAttributes window_attr;
+    XGetWindowAttributes(disp, wl->frame, &frame_attr);
+    XGetWindowAttributes(disp, wl->window, &window_attr);
+    XMoveResizeWindow(disp, wl->window,
+                      FRAME_BORDER, FRAME_TITLE_HEIGHT,
+                      frame_attr.width - FRAME_BORDER * 2 - window_attr.border_width * 2,
+                      frame_attr.height - FRAME_TITLE_HEIGHT - FRAME_BORDER - window_attr.border_width * 2);
+}
+
 void DrawFrame(WindowList *wl) {
     Atom net_wm_name = XInternAtom(disp, "_NET_WM_NAME", False);
     XWindowAttributes attr;
