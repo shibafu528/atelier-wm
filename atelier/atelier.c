@@ -15,7 +15,7 @@ Boolean terminate = FALSE;
 
 extern XFontSet fontset;
 
-#define RESIZE_THRESHOLD 2
+#define RESIZE_THRESHOLD 4
 
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
     WindowList *wl;

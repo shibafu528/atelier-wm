@@ -6,7 +6,7 @@
 #include <string.h>
 #include "window.h"
 
-#define FRAME_BORDER 1
+#define FRAME_BORDER 2
 #define FRAME_TITLE_HEIGHT 22
 
 XFontSet fontset;
@@ -32,12 +32,12 @@ Window CatchWindow(Window window) {
                                 attr.x,
                                 attr.y,
                                 attr.width + FRAME_BORDER * 2 + attr.border_width * 2,
-                                attr.height + FRAME_TITLE_HEIGHT + 1 + attr.border_width * 2,
+                                attr.height + FRAME_TITLE_HEIGHT + FRAME_BORDER + attr.border_width * 2,
                                 1,
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
     XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
-    XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
+    XReparentWindow(disp, window, frame, FRAME_BORDER, FRAME_TITLE_HEIGHT);
     if (attr.map_state == IsViewable) {
         XMapWindow(disp, window);
         XMapWindow(disp, frame);
@@ -102,7 +102,8 @@ void DrawFrame(WindowList *wl) {
 
     XSetForeground(disp, gc, BlackPixel(disp, screen));
     {
-        char title[512] = {};
+        int title_length = 512;
+        char title[title_length];
         XTextProperty prop;
         title[0] = '\0';
         XGetTextProperty(disp, wl->window, &prop, net_wm_name);
@@ -111,13 +112,13 @@ void DrawFrame(WindowList *wl) {
         }
         if (prop.nitems > 0 && prop.value) {
             if (prop.encoding == XA_STRING) {
-                strncpy(title, (char*) prop.value, 511);
+                strncpy(title, (char*) prop.value, title_length-1);
             } else {
                 char **l = NULL;
                 int count;
                 XmbTextPropertyToTextList(disp, &prop, &l, &count);
                 if (count > 0 && *l) {
-                    strncpy(title, *l, 511);
+                    strncpy(title, *l, title_length-1);
                 }
                 XFreeStringList(l);
             }
