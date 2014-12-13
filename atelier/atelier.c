@@ -34,7 +34,7 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
 void RaiseWindow(WindowList *wl) {
     if (wl == NULL) return;
     XRaiseWindow(disp, wl->frame);
-    XSetInputFocus(disp, wl->window, RevertToParent, CurrentTime);
+    XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
 }
 
 static inline int Max(int a, int b) {
