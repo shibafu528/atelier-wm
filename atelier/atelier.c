@@ -15,7 +15,19 @@ Boolean terminate = FALSE;
 
 extern XFontSet fontset;
 
+typedef enum _GrabbedEdge GrabbedEdge;
+enum _GrabbedEdge {
+    EDGE_NONE   = 0,
+    EDGE_TOP    = 1,
+    EDGE_LEFT   = 1 << 1,
+    EDGE_RIGHT  = 1 << 2,
+    EDGE_BOTTOM = 1 << 3
+};
+
+#define RESIZE_THRESHOLD 4
+
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
+    WindowList *wl = FindFrame(event.window);
     XWindowChanges change;
     change.x = event.x;
     change.y = event.y;
@@ -25,12 +37,28 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
     change.sibling = event.above;
     change.stack_mode = event.detail;
     XConfigureWindow(disp, event.window, event.value_mask, &change);
+    if (IsClient(wl, event.window)) {
+        FitToClient(wl);
+    }
 }
 
 void RaiseWindow(WindowList *wl) {
     if (wl == NULL) return;
     XRaiseWindow(disp, wl->frame);
-    XSetInputFocus(disp, wl->window, RevertToParent, CurrentTime);
+    XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
+}
+
+static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes attr) {
+    GrabbedEdge edge = EDGE_NONE;
+    if (start.y < RESIZE_THRESHOLD)               edge |= EDGE_TOP;
+    if (start.x < RESIZE_THRESHOLD)               edge |= EDGE_LEFT;
+    if (start.x > attr.width  - RESIZE_THRESHOLD) edge |= EDGE_RIGHT;
+    if (start.y > attr.height - RESIZE_THRESHOLD) edge |= EDGE_BOTTOM;
+    return edge;
+}
+
+static inline int Max(int a, int b) {
+    return a > b ? a : b;
 }
 
 static Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
@@ -120,6 +148,7 @@ int main(int argc, char* argv[]) {
     while (!terminate) {
         static XButtonEvent move_start;
         static XWindowAttributes move_attr;
+        static GrabbedEdge move_edge;
         WindowList* wl;
         XNextEvent(disp, &event);
 
@@ -132,6 +161,7 @@ int main(int argc, char* argv[]) {
             XMapWindow(disp, CatchWindow(event.xmaprequest.window));
             XMapWindow(disp, event.xmaprequest.window);
             lastRaised = FindFrame(event.xmaprequest.window);
+            RaiseWindow(lastRaised);
             break;
         case UnmapNotify:
             if (wl != NULL) {
@@ -174,12 +204,37 @@ int main(int argc, char* argv[]) {
         case MotionNotify:
             while (XCheckTypedEvent(disp, MotionNotify, &event));
             {
-                int xdiff, ydiff;
-                xdiff = event.xbutton.x_root - move_start.x_root;
-                ydiff = event.xbutton.y_root - move_start.y_root;
-                XMoveWindow(disp, event.xmotion.window,
-                            move_attr.x + xdiff,
-                            move_attr.y + ydiff);
+                int x, y, width, height;
+                x = move_attr.x;
+                y = move_attr.y;
+                width = move_attr.width;
+                height = move_attr.height;
+
+                // Resize
+                if (move_edge & EDGE_TOP) {
+                    y += event.xbutton.y_root - move_start.y_root;
+                    height -= event.xbutton.y_root - move_start.y_root;
+                }
+                if (move_edge & EDGE_BOTTOM) {
+                    height += event.xbutton.y_root - move_start.y_root;
+                }
+                if (move_edge & EDGE_LEFT) {
+                    x += event.xbutton.x_root - move_start.x_root;
+                    width -= event.xbutton.x_root - move_start.x_root;
+                }
+                if (move_edge & EDGE_RIGHT) {
+                    width += event.xbutton.x_root - move_start.x_root;
+                }
+
+                // Move
+                if (!move_edge) {
+                    x += event.xbutton.x_root - move_start.x_root;
+                    y += event.xbutton.y_root - move_start.y_root;
+                }
+                
+                XMoveResizeWindow(disp, event.xmotion.window,
+                                  x, y, Max(1, width), Max(1, height));
+                FitToFrame(wl);
             }
             break;
         case ButtonPress:
@@ -214,12 +269,15 @@ int main(int argc, char* argv[]) {
                 }
             } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
                 printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                printf(" -> X: %d, Y: %d\n", event.xbutton.x, event.xbutton.y);
                 XGrabPointer(disp, event.xbutton.window, True,
                              PointerMotionMask | ButtonReleaseMask,
                              GrabModeAsync, GrabModeAsync,
                              None, None, CurrentTime);
                 XGetWindowAttributes(disp, event.xbutton.window, &move_attr);
                 move_start = event.xbutton;
+                move_edge = GetGrabbedEdge(move_start, move_attr);
+                printf(" -> Edge: %d\n", move_edge);
             } else {
                 printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
             }

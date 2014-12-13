@@ -6,7 +6,7 @@
 #include <string.h>
 #include "window.h"
 
-#define FRAME_BORDER 1
+#define FRAME_BORDER 2
 #define FRAME_TITLE_HEIGHT 22
 
 XFontSet fontset;
@@ -27,22 +27,22 @@ Window CatchWindow(Window window) {
     Window frame;
     WindowList *wl;
     XGetWindowAttributes(disp, window, &attr);
+    XAddToSaveSet(disp, window);
     frame = XCreateSimpleWindow(disp, root,
                                 attr.x,
                                 attr.y,
-                                attr.width + FRAME_BORDER * 2,
-                                attr.height + FRAME_TITLE_HEIGHT + 1,
+                                attr.width + FRAME_BORDER * 2 + attr.border_width * 2,
+                                attr.height + FRAME_TITLE_HEIGHT + FRAME_BORDER + attr.border_width * 2,
                                 1,
                                 BlackPixel(disp, screen),
                                 WhitePixel(disp, screen));
     XSelectInput(disp, frame, ExposureMask | ButtonPressMask | ButtonReleaseMask | Button1MotionMask | SubstructureRedirectMask | SubstructureNotifyMask);
     XSelectInput(disp, window, PropertyChangeMask);
-    XReparentWindow(disp, window, frame, 1, FRAME_TITLE_HEIGHT);
+    XReparentWindow(disp, window, frame, FRAME_BORDER, FRAME_TITLE_HEIGHT);
     if (attr.map_state == IsViewable) {
         XMapWindow(disp, window);
         XMapWindow(disp, frame);
     }
-    XAddToSaveSet(disp, window);
     wl = CreateWindowList(frame, window);
     if (windows == NULL) {
         windows = wl;
@@ -92,6 +92,26 @@ WindowList* FindFrame(Window window) {
     return wp;
 }
 
+void FitToFrame(WindowList *wl) {
+    XWindowAttributes frame_attr;
+    XWindowAttributes window_attr;
+    XGetWindowAttributes(disp, wl->frame, &frame_attr);
+    XGetWindowAttributes(disp, wl->window, &window_attr);
+    XMoveResizeWindow(disp, wl->window,
+                      FRAME_BORDER, FRAME_TITLE_HEIGHT,
+                      frame_attr.width - FRAME_BORDER * 2 - window_attr.border_width * 2,
+                      frame_attr.height - FRAME_TITLE_HEIGHT - FRAME_BORDER - window_attr.border_width * 2);
+}
+
+void FitToClient(WindowList *wl) {
+    XWindowAttributes window_attr;
+    XGetWindowAttributes(disp, wl->window, &window_attr);
+    XResizeWindow(disp, wl->frame,
+                  window_attr.width + FRAME_BORDER * 2 + window_attr.border_width * 2,
+                  window_attr.height + FRAME_TITLE_HEIGHT + FRAME_BORDER + window_attr.border_width * 2);
+    XMoveWindow(disp, wl->window, FRAME_BORDER, FRAME_TITLE_HEIGHT);
+}
+
 void DrawFrame(WindowList *wl) {
     Atom net_wm_name = XInternAtom(disp, "_NET_WM_NAME", False);
     XWindowAttributes attr;
@@ -103,7 +123,8 @@ void DrawFrame(WindowList *wl) {
 
     XSetForeground(disp, gc, BlackPixel(disp, screen));
     {
-        char title[512] = {};
+        int title_length = 512;
+        char title[title_length];
         XTextProperty prop;
         title[0] = '\0';
         XGetTextProperty(disp, wl->window, &prop, net_wm_name);
@@ -112,13 +133,13 @@ void DrawFrame(WindowList *wl) {
         }
         if (prop.nitems > 0 && prop.value) {
             if (prop.encoding == XA_STRING) {
-                strncpy(title, (char*) prop.value, 511);
+                strncpy(title, (char*) prop.value, title_length-1);
             } else {
                 char **l = NULL;
                 int count;
                 XmbTextPropertyToTextList(disp, &prop, &l, &count);
                 if (count > 0 && *l) {
-                    strncpy(title, *l, 511);
+                    strncpy(title, *l, title_length-1);
                 }
                 XFreeStringList(l);
             }
