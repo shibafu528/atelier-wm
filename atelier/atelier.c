@@ -37,6 +37,9 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
     change.sibling = event.above;
     change.stack_mode = event.detail;
     XConfigureWindow(disp, event.window, event.value_mask, &change);
+    if (IsClient(wl, event.window)) {
+        FitToClient(wl);
+    }
 }
 
 void RaiseWindow(WindowList *wl) {
@@ -220,7 +223,7 @@ int main(int argc, char* argv[]) {
                 
                 XMoveResizeWindow(disp, event.xmotion.window,
                                   x, y, Max(1, width), Max(1, height));
-                FitFrame(wl);
+                FitToFrame(wl);
             }
             break;
         case ButtonPress:

@@ -91,7 +91,7 @@ WindowList* FindFrame(Window window) {
     return wp;
 }
 
-void FitFrame(WindowList *wl) {
+void FitToFrame(WindowList *wl) {
     XWindowAttributes frame_attr;
     XWindowAttributes window_attr;
     XGetWindowAttributes(disp, wl->frame, &frame_attr);
@@ -100,6 +100,15 @@ void FitFrame(WindowList *wl) {
                       FRAME_BORDER, FRAME_TITLE_HEIGHT,
                       frame_attr.width - FRAME_BORDER * 2 - window_attr.border_width * 2,
                       frame_attr.height - FRAME_TITLE_HEIGHT - FRAME_BORDER - window_attr.border_width * 2);
+}
+
+void FitToClient(WindowList *wl) {
+    XWindowAttributes window_attr;
+    XGetWindowAttributes(disp, wl->window, &window_attr);
+    XResizeWindow(disp, wl->frame,
+                  window_attr.width + FRAME_BORDER * 2 + window_attr.border_width * 2,
+                  window_attr.height + FRAME_TITLE_HEIGHT + FRAME_BORDER + window_attr.border_width * 2);
+    XMoveWindow(disp, wl->window, FRAME_BORDER, FRAME_TITLE_HEIGHT);
 }
 
 void DrawFrame(WindowList *wl) {

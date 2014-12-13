@@ -54,7 +54,11 @@ void ReleaseAllWindows();
 
 WindowList* FindFrame(Window window);
 
-void FitFrame(WindowList *wl);
+//クライアントをフレームに合わせる
+void FitToFrame(WindowList *wl);
+
+//フレームをクライアントに合わせる
+void FitToClient(WindowList *wl);
 
 void DrawFrame(WindowList *wl);
 
