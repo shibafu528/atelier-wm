@@ -27,9 +27,8 @@ enum _GrabbedEdge {
 #define RESIZE_THRESHOLD 4
 
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
-    WindowList *wl;
+    WindowList *wl = FindFrame(event.window);
     XWindowChanges change;
-    wl = FindFrame(event.window);
     change.x = event.x;
     change.y = event.y;
     change.width = event.width;
@@ -199,13 +198,17 @@ int main(int argc, char* argv[]) {
                 
                 switch (move_edge) {
                 case EDGE_TOP:
+                    y += event.xbutton.y_root - move_start.y_root;
+                    height -= event.xbutton.y_root - move_start.y_root;
+                    break;
                 case EDGE_BOTTOM:
-                    // Resize Height
                     height += event.xbutton.y_root - move_start.y_root;
                     break;
                 case EDGE_LEFT:
+                    x += event.xbutton.x_root - move_start.x_root;
+                    width -= event.xbutton.x_root - move_start.x_root;
+                    break;
                 case EDGE_RIGHT:
-                    // Resize Width
                     width += event.xbutton.x_root - move_start.x_root;
                     break;
                 default:
