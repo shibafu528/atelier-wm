@@ -6,6 +6,7 @@
 #include <string.h>
 #include "atelier.h"
 #include "window.h"
+#include "panel.h"
 
 Display *disp;
 Screen screen;
@@ -46,6 +47,7 @@ void RaiseWindow(WindowList *wl) {
     if (wl == NULL) return;
     XRaiseWindow(disp, wl->frame);
     XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
+    RaisePanel();
 }
 
 static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes attr) {
@@ -55,10 +57,6 @@ static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes a
     if (start.x > attr.width  - RESIZE_THRESHOLD) edge |= EDGE_RIGHT;
     if (start.y > attr.height - RESIZE_THRESHOLD) edge |= EDGE_BOTTOM;
     return edge;
-}
-
-static inline int Max(int a, int b) {
-    return a > b ? a : b;
 }
 
 static Boolean SetSignal(int signame, void (*sighandle)(int signum)) {
@@ -126,6 +124,9 @@ int main(int argc, char* argv[]) {
 
         XFreeStringList(missing_list);
     }
+
+    //パネルの初期化
+    InitPanel();
     
     //ウィンドウ切り替えのパッシブグラブ
     tabKey = XKeysymToKeycode(disp, XStringToKeysym("Tab"));
@@ -197,6 +198,9 @@ int main(int argc, char* argv[]) {
             if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
                 printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
                 DrawFrame(wl);
+            } else if (event.xexpose.count == 0 && IsPanel(event.xexpose.window)) {
+                printf(" -> Expose Event, Draw Panel.\n");
+                DrawPanel();
             } else {
                 printf(" -> Expose Event, Skip.\n");
             }

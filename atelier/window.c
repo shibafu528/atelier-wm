@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "window.h"
+#include "panel.h"
 
 #define FRAME_BORDER 2
 #define FRAME_TITLE_HEIGHT 22
@@ -30,7 +31,7 @@ Window CatchWindow(Window window) {
     XAddToSaveSet(disp, window);
     frame = XCreateSimpleWindow(disp, root,
                                 attr.x,
-                                attr.y,
+                                Max(attr.y, PANEL_HEIGHT),
                                 attr.width + FRAME_BORDER * 2 + attr.border_width * 2,
                                 attr.height + FRAME_TITLE_HEIGHT + FRAME_BORDER + attr.border_width * 2,
                                 1,

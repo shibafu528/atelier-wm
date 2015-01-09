@@ -1,13 +1,6 @@
 #include <X11/Xlib.h>
 #include "atelier.h"
-
-// あとでヘッダに移す
-void InitPanel();
-void ShowPanel();
-void HidePanel();
-void DrawPanel();
-
-#define PANEL_HEIGHT 22
+#include "panel.h"
 
 Window panel;
 XColor bgcolor;
@@ -20,7 +13,7 @@ void InitPanel() {
     XAllocColor(disp, cmap, &bgcolor);
 
     attr.colormap = cmap;
-    attr.override_redirect = true;
+    attr.override_redirect = True;
     attr.background_pixel = bgcolor.pixel;
     
     panel = XCreateWindow(disp, root,
@@ -30,4 +23,16 @@ void InitPanel() {
                           CWColormap | CWOverrideRedirect | CWBackPixel,
                           &attr);
     XMapWindow(disp, panel);
+}
+
+void DrawPanel() {
+    
+}
+
+void RaisePanel() {
+    XRaiseWindow(disp, panel);
+}
+
+int IsPanel(Window w) {
+    return panel == w;
 }
