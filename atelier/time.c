@@ -1,5 +1,6 @@
 #include <time.h>
 #include <stdio.h>
+#include "time.h"
 
 void PrintTime(time_t *tm, char* output, int length) {
     struct tm *local;

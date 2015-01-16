@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
 find_package(X11 REQUIRED)
 include_directories(${X11_INCLUDE_DIR})
-add_executable(atelier atelier.c window.c panel.c)
+add_executable(atelier atelier.c window.c panel.c time.c)
 target_link_libraries(atelier ${X11_LIBRARIES})

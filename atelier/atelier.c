@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include "atelier.h"
 #include "window.h"
 #include "panel.h"
@@ -147,165 +148,171 @@ int main(int argc, char* argv[]) {
     XSync(disp, False);
 
     while (!terminate) {
-        static XButtonEvent move_start;
-        static XWindowAttributes move_attr;
-        static GrabbedEdge move_edge;
-        WindowList* wl;
-        XNextEvent(disp, &event);
+        if (XPending(disp)) {
+            static XButtonEvent move_start;
+            static XWindowAttributes move_attr;
+            static GrabbedEdge move_edge;
+            WindowList* wl;
+            XNextEvent(disp, &event);
 
-        wl = FindFrame(event.xany.window);
-        printf("Event %d, W:%d, WL:%d\n", event.type, event.xany.window, wl);
+            wl = FindFrame(event.xany.window);
+            printf("Event %d, W:%d, WL:%d\n", event.type, event.xany.window, wl);
 
-        switch(event.type) {
-        case MapRequest:
-            printf(" -> MReq Event\n");
-            XMapWindow(disp, CatchWindow(event.xmaprequest.window));
-            XMapWindow(disp, event.xmaprequest.window);
-            lastRaised = FindFrame(event.xmaprequest.window);
-            RaiseWindow(lastRaised);
-            break;
-        case UnmapNotify:
-            if (wl != NULL) {
-                printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
-                ReleaseWindow(wl, FALSE);
+            switch(event.type) {
+            case MapRequest:
+                printf(" -> MReq Event\n");
+                XMapWindow(disp, CatchWindow(event.xmaprequest.window));
+                XMapWindow(disp, event.xmaprequest.window);
+                lastRaised = FindFrame(event.xmaprequest.window);
                 RaiseWindow(lastRaised);
-            } else {
-                printf(" -> Unmap Event, Skip.\n");
-            }
-            break;
-        case DestroyNotify:
-            if (wl != NULL) {
-                printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
-                ReleaseWindow(wl, TRUE);
-                RaiseWindow(lastRaised);
-            } else {
-                printf(" -> Destroy Event, Skip.\n");
-            }
-            break;
-        case ConfigureRequest:
-            printf(" -> ConfigReq Event\n");
-            ConfigureRequestHandler(event.xconfigurerequest);
-            break;
-        case PropertyNotify:
-            if (IsClient(wl, event.xany.window) && (event.xproperty.atom == net_wm_name || event.xproperty.atom == wm_name)) {
-                printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                DrawFrame(wl);
-            }
-            break;
-        case Expose:
-            if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
-                printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
-                DrawFrame(wl);
-            } else if (event.xexpose.count == 0 && IsPanel(event.xexpose.window)) {
-                printf(" -> Expose Event, Draw Panel.\n");
-                DrawPanel();
-            } else {
-                printf(" -> Expose Event, Skip.\n");
-            }
-            break;
-        case MotionNotify:
-            while (XCheckTypedEvent(disp, MotionNotify, &event));
-            {
-                int x, y, width, height;
-                x = move_attr.x;
-                y = move_attr.y;
-                width = move_attr.width;
-                height = move_attr.height;
-
-                // Resize
-                if (move_edge & EDGE_TOP) {
-                    y += event.xbutton.y_root - move_start.y_root;
-                    height -= event.xbutton.y_root - move_start.y_root;
-                }
-                if (move_edge & EDGE_BOTTOM) {
-                    height += event.xbutton.y_root - move_start.y_root;
-                }
-                if (move_edge & EDGE_LEFT) {
-                    x += event.xbutton.x_root - move_start.x_root;
-                    width -= event.xbutton.x_root - move_start.x_root;
-                }
-                if (move_edge & EDGE_RIGHT) {
-                    width += event.xbutton.x_root - move_start.x_root;
-                }
-
-                // Move
-                if (!move_edge) {
-                    x += event.xbutton.x_root - move_start.x_root;
-                    y += event.xbutton.y_root - move_start.y_root;
-                }
-                
-                XMoveResizeWindow(disp, event.xmotion.window,
-                                  x, y, Max(1, width), Max(1, height));
-                FitToFrame(wl);
-            }
-            break;
-        case ButtonPress:
-            if (wl != NULL) {
-                lastRaised = wl;
-                RaiseWindow(wl);
-            }
-            if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
-                Atom *protocols;
-                int protocols_num;
-                XEvent delete_event;
-                printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
-                XGetWMProtocols(disp, wl->window, &protocols, &protocols_num);
-                printf(" -> WM_PROTOCOLS * %d\n", protocols_num);
-                for (int i = 0; i < protocols_num; i++) {
-                    if (protocols[i] == wm_delete_window) {
-                        printf(" -> Found WM_DELETE_WINDOW\n");
-                        delete_event.xclient.type = ClientMessage;
-                        delete_event.xclient.window = wl->window;
-                        delete_event.xclient.message_type = wm_protocols;
-                        delete_event.xclient.format = 32;
-                        delete_event.xclient.data.l[0] = wm_delete_window;
-                        delete_event.xclient.data.l[1] = CurrentTime;
-                        break;
-                    }
-                }
-                XFree(protocols);
-                if (delete_event.xclient.type == ClientMessage) {
-                    XSendEvent(disp, wl->window, False, NoEventMask, &delete_event);
-                } else {
-                    XKillClient(disp, wl->window);
-                }
-            } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
-                printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
-                printf(" -> X: %d, Y: %d\n", event.xbutton.x, event.xbutton.y);
-                XGrabPointer(disp, event.xbutton.window, True,
-                             PointerMotionMask | ButtonReleaseMask,
-                             GrabModeAsync, GrabModeAsync,
-                             None, None, CurrentTime);
-                XGetWindowAttributes(disp, event.xbutton.window, &move_attr);
-                move_start = event.xbutton;
-                move_edge = GetGrabbedEdge(move_start, move_attr);
-                printf(" -> Edge: %d\n", move_edge);
-            } else {
-                printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
-            }
-            break;
-        case ButtonRelease:
-            XUngrabPointer(disp, CurrentTime);
-            break;
-        case KeyPress:
-            if (event.xkey.keycode == tabKey) {
-                printf(" -> KeyPress Event, SW:%d, LW:%d\n", event.xkey.subwindow, event.xany.window);
-                if (lastRaised == NULL) {
-                    lastRaised = FindFrame(event.xkey.subwindow);
-                }
-                if (lastRaised != NULL) {
-                    lastRaised = event.xkey.state == Mod1Mask? GetNextWindow(lastRaised) : GetPrevWindow(lastRaised);
+                break;
+            case UnmapNotify:
+                if (wl != NULL) {
+                    printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                    lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
+                    ReleaseWindow(wl, FALSE);
                     RaiseWindow(lastRaised);
+                } else {
+                    printf(" -> Unmap Event, Skip.\n");
                 }
-            } else {
-                printf(" -> KeyPress Event SW:%d , Skip.\n", event.xkey.subwindow);
-            }
-            break;
-        }
+                break;
+            case DestroyNotify:
+                if (wl != NULL) {
+                    printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                    lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
+                    ReleaseWindow(wl, TRUE);
+                    RaiseWindow(lastRaised);
+                } else {
+                    printf(" -> Destroy Event, Skip.\n");
+                }
+                break;
+            case ConfigureRequest:
+                printf(" -> ConfigReq Event\n");
+                ConfigureRequestHandler(event.xconfigurerequest);
+                break;
+            case PropertyNotify:
+                if (IsClient(wl, event.xany.window) && (event.xproperty.atom == net_wm_name || event.xproperty.atom == wm_name)) {
+                    printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
+                    DrawFrame(wl);
+                }
+                break;
+            case Expose:
+                if (event.xexpose.count == 0 && IsFrame(wl, event.xexpose.window)) {
+                    printf(" -> Expose Event, LW:%d, LF:%d\n", event.xexpose.window, wl, wl->window, wl->frame);
+                    DrawFrame(wl);
+                } else if (event.xexpose.count == 0 && IsPanel(event.xexpose.window)) {
+                    printf(" -> Expose Event, Draw Panel.\n");
+                    DrawPanel();
+                } else {
+                    printf(" -> Expose Event, Skip.\n");
+                }
+                break;
+            case MotionNotify:
+                while (XCheckTypedEvent(disp, MotionNotify, &event));
+                {
+                    int x, y, width, height;
+                    x = move_attr.x;
+                    y = move_attr.y;
+                    width = move_attr.width;
+                    height = move_attr.height;
 
-        XSync(disp, False);
+                    // Resize
+                    if (move_edge & EDGE_TOP) {
+                        y += event.xbutton.y_root - move_start.y_root;
+                        height -= event.xbutton.y_root - move_start.y_root;
+                    }
+                    if (move_edge & EDGE_BOTTOM) {
+                        height += event.xbutton.y_root - move_start.y_root;
+                    }
+                    if (move_edge & EDGE_LEFT) {
+                        x += event.xbutton.x_root - move_start.x_root;
+                        width -= event.xbutton.x_root - move_start.x_root;
+                    }
+                    if (move_edge & EDGE_RIGHT) {
+                        width += event.xbutton.x_root - move_start.x_root;
+                    }
+
+                    // Move
+                    if (!move_edge) {
+                        x += event.xbutton.x_root - move_start.x_root;
+                        y += event.xbutton.y_root - move_start.y_root;
+                    }
+                
+                    XMoveResizeWindow(disp, event.xmotion.window,
+                                      x, y, Max(1, width), Max(1, height));
+                    FitToFrame(wl);
+                }
+                break;
+            case ButtonPress:
+                if (wl != NULL) {
+                    lastRaised = wl;
+                    RaiseWindow(wl);
+                }
+                if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
+                    Atom *protocols;
+                    int protocols_num;
+                    XEvent delete_event;
+                    printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                    XGetWMProtocols(disp, wl->window, &protocols, &protocols_num);
+                    printf(" -> WM_PROTOCOLS * %d\n", protocols_num);
+                    for (int i = 0; i < protocols_num; i++) {
+                        if (protocols[i] == wm_delete_window) {
+                            printf(" -> Found WM_DELETE_WINDOW\n");
+                            delete_event.xclient.type = ClientMessage;
+                            delete_event.xclient.window = wl->window;
+                            delete_event.xclient.message_type = wm_protocols;
+                            delete_event.xclient.format = 32;
+                            delete_event.xclient.data.l[0] = wm_delete_window;
+                            delete_event.xclient.data.l[1] = CurrentTime;
+                            break;
+                        }
+                    }
+                    XFree(protocols);
+                    if (delete_event.xclient.type == ClientMessage) {
+                        XSendEvent(disp, wl->window, False, NoEventMask, &delete_event);
+                    } else {
+                        XKillClient(disp, wl->window);
+                    }
+                } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
+                    printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
+                    printf(" -> X: %d, Y: %d\n", event.xbutton.x, event.xbutton.y);
+                    XGrabPointer(disp, event.xbutton.window, True,
+                                 PointerMotionMask | ButtonReleaseMask,
+                                 GrabModeAsync, GrabModeAsync,
+                                 None, None, CurrentTime);
+                    XGetWindowAttributes(disp, event.xbutton.window, &move_attr);
+                    move_start = event.xbutton;
+                    move_edge = GetGrabbedEdge(move_start, move_attr);
+                    printf(" -> Edge: %d\n", move_edge);
+                } else {
+                    printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
+                }
+                break;
+            case ButtonRelease:
+                XUngrabPointer(disp, CurrentTime);
+                break;
+            case KeyPress:
+                if (event.xkey.keycode == tabKey) {
+                    printf(" -> KeyPress Event, SW:%d, LW:%d\n", event.xkey.subwindow, event.xany.window);
+                    if (lastRaised == NULL) {
+                        lastRaised = FindFrame(event.xkey.subwindow);
+                    }
+                    if (lastRaised != NULL) {
+                        lastRaised = event.xkey.state == Mod1Mask? GetNextWindow(lastRaised) : GetPrevWindow(lastRaised);
+                        RaiseWindow(lastRaised);
+                    }
+                } else {
+                    printf(" -> KeyPress Event SW:%d , Skip.\n", event.xkey.subwindow);
+                }
+                break;
+            }
+            XSync(disp, False);
+        } else {
+            struct timespec ts = {0, 10000000};
+            DrawPanel();
+            XSync(disp, False);
+            nanosleep(&ts, NULL);
+        }
     }
 
     XFreeGC(disp, gc);
