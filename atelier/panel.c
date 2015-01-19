@@ -38,7 +38,9 @@ void DrawPanel() {
     XSetForeground(disp, gc, bgcolor.pixel);
     XFillRectangle(disp, panel, gc, 0, 0, attr.width, attr.height);
     XSetForeground(disp, gc, WhitePixel(disp, screen));
-    XmbDrawString(disp, panel, fontset, gc, 2, 16, time_str, strlen(time_str));
+    XmbDrawString(disp, panel, fontset, gc,
+                  attr.width - 2 - XmbTextEscapement(fontset, time_str, strlen(time_str)),
+                  16, time_str, strlen(time_str));
 }
 
 void RaisePanel() {
