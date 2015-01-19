@@ -6,6 +6,7 @@
 #define PANEL_HEIGHT 22
 
 void InitPanel();
+void DestroyPanel();
 void ShowPanel();
 void HidePanel();
 void DrawPanel();

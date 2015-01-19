@@ -29,6 +29,10 @@ void InitPanel() {
     XMapWindow(disp, panel);
 }
 
+void DestroyPanel() {
+    XDestroyWindow(disp, panel);
+}
+
 void DrawPanel() {
     XWindowAttributes attr;
     char time_str[80];

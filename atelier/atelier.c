@@ -152,6 +152,7 @@ int main(int argc, char* argv[]) {
             static XButtonEvent move_start;
             static XWindowAttributes move_attr;
             static GrabbedEdge move_edge;
+            static WindowList* dispose_requested;
             WindowList* wl;
             XNextEvent(disp, &event);
 
@@ -191,7 +192,7 @@ int main(int argc, char* argv[]) {
                 ConfigureRequestHandler(event.xconfigurerequest);
                 break;
             case PropertyNotify:
-                if (IsClient(wl, event.xany.window) && (event.xproperty.atom == net_wm_name || event.xproperty.atom == wm_name)) {
+                if (IsClient(wl, event.xany.window) && (event.xproperty.atom == net_wm_name || event.xproperty.atom == wm_name) && dispose_requested != wl) {
                     printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
                     DrawFrame(wl);
                 }
@@ -268,6 +269,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     XFree(protocols);
+                    dispose_requested = wl;
                     if (delete_event.xclient.type == ClientMessage) {
                         XSendEvent(disp, wl->window, False, NoEventMask, &delete_event);
                     } else {
@@ -319,6 +321,7 @@ int main(int argc, char* argv[]) {
 
     //管理しているウィンドウをすべて解放する
     ReleaseAllWindows();
+    //DestroyPanel();
     XCloseDisplay(disp);
     return 0;
 } 
