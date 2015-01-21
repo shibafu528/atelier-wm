@@ -4,9 +4,20 @@
 #include "panel.h"
 #include "time.h"
 
+#define BUTTON_PIXMAP_WIDTH 22
+
 Window panel;
 XColor bgcolor;
 extern XFontSet fontset;
+
+static inline int GetXPointFromRight(int exist_icons) {
+    return 2 + BUTTON_PIXMAP_WIDTH * exist_icons;
+}
+
+static void InitPanelResources() {
+    char respath[1024];
+    GetInstalledDirectory(respath, sizeof(respath));
+}
 
 void InitPanel() {
     Colormap cmap;
@@ -43,7 +54,7 @@ void DrawPanel() {
     XFillRectangle(disp, panel, gc, 0, 0, attr.width, attr.height);
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     XmbDrawString(disp, panel, fontset, gc,
-                  attr.width - 2 - XmbTextEscapement(fontset, time_str, strlen(time_str)),
+                  attr.width - GetXPointFromRight(0) - XmbTextEscapement(fontset, time_str, strlen(time_str)),
                   16, time_str, strlen(time_str));
 }
 
