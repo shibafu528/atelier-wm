@@ -11,6 +11,6 @@ typedef struct {
 
 void FreeBitmapRes(BitmapRes *res);
 
-int ReadStaticBitmap(Drawable d, char *filename, BitmapRes *res_return);
+int ReadStaticBitmap(Drawable d, char *filename, BitmapRes **res_return);
 
 #endif

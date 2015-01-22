@@ -8,15 +8,23 @@
 #define BUTTON_PIXMAP_WIDTH 22
 
 Window panel;
-XColor bgcolor;
+static XColor bgcolor;
 extern XFontSet fontset;
 
-enum {
+typedef enum {
     BUTTON_QUIT,
+    BUTTON_LAUNCHER,
+    BUTTON_HOME,
     BUTTON_SIZE
-};
+} ButtonRes;
 
-static BitmapRes buttons[BUTTON_SIZE];
+static BitmapRes* buttons[BUTTON_SIZE];
+
+static inline void DrawButtonRes(ButtonRes identifier, int x, int y) {
+    XCopyPlane(disp, buttons[identifier]->pixmap, panel, gc, 0, 0,
+              buttons[identifier]->width, buttons[identifier]->height,
+               x, y, 1);
+}
 
 static inline int GetXPointFromRight(int exist_icons) {
     return 2 + BUTTON_PIXMAP_WIDTH * exist_icons;
@@ -24,6 +32,12 @@ static inline int GetXPointFromRight(int exist_icons) {
 
 static void InitPanelResources() {
     ReadStaticBitmap(panel, "shutdown.xbm", &buttons[BUTTON_QUIT]);
+}
+
+static void FreePanelResources() {
+    for (int id = 0; id < BUTTON_SIZE; id++) {
+        FreeBitmapRes(buttons[id]);
+    }
 }
 
 void InitPanel() {
@@ -50,6 +64,7 @@ void InitPanel() {
 }
 
 void DestroyPanel() {
+    FreePanelResources();
     XDestroyWindow(disp, panel);
 }
 
@@ -63,8 +78,11 @@ void DrawPanel() {
     XFillRectangle(disp, panel, gc, 0, 0, attr.width, attr.height);
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     XmbDrawString(disp, panel, fontset, gc,
-                  attr.width - GetXPointFromRight(0) - XmbTextEscapement(fontset, time_str, strlen(time_str)),
-                  16, time_str, strlen(time_str));
+                  attr.width - GetXPointFromRight(1) - 2 - XmbTextEscapement(fontset, time_str, strlen(time_str)),
+                  18, time_str, strlen(time_str));
+    XSetForeground(disp, gc, bgcolor.pixel);
+    XSetBackground(disp, gc, WhitePixel(disp, screen));
+    DrawButtonRes(BUTTON_QUIT, attr.width - GetXPointFromRight(1), 1);
 }
 
 void RaisePanel() {
