@@ -3,6 +3,7 @@
 #include "atelier.h"
 #include "panel.h"
 #include "time.h"
+#include "resource.h"
 
 #define BUTTON_PIXMAP_WIDTH 22
 
@@ -10,13 +11,19 @@ Window panel;
 XColor bgcolor;
 extern XFontSet fontset;
 
+enum {
+    BUTTON_QUIT,
+    BUTTON_SIZE
+};
+
+static BitmapRes buttons[BUTTON_SIZE];
+
 static inline int GetXPointFromRight(int exist_icons) {
     return 2 + BUTTON_PIXMAP_WIDTH * exist_icons;
 }
 
 static void InitPanelResources() {
-    char respath[1024];
-    GetInstalledDirectory(respath, sizeof(respath));
+    ReadStaticBitmap(panel, "shutdown.xbm", &buttons[BUTTON_QUIT]);
 }
 
 void InitPanel() {
@@ -38,6 +45,8 @@ void InitPanel() {
                           &attr);
     XSelectInput(disp, panel, ExposureMask);
     XMapWindow(disp, panel);
+
+    InitPanelResources();
 }
 
 void DestroyPanel() {
