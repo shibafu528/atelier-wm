@@ -9,8 +9,10 @@ void InitPanel();
 void DestroyPanel();
 void ShowPanel();
 void HidePanel();
+void DrawPanelClock();
 void DrawPanel();
 void RaisePanel();
 int IsPanel(Window w);
+void OnClickPanel(XButtonEvent event);
 
 #endif

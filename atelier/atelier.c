@@ -275,7 +275,7 @@ int main(int argc, char* argv[]) {
                     } else {
                         XKillClient(disp, wl->window);
                     }
-                } else if (IsFrame(wl, event.xany.window) && event.xbutton.button ==Button1) {
+                } else if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button1) {
                     printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
                     printf(" -> X: %d, Y: %d\n", event.xbutton.x, event.xbutton.y);
                     XGrabPointer(disp, event.xbutton.window, True,
@@ -286,6 +286,9 @@ int main(int argc, char* argv[]) {
                     move_start = event.xbutton;
                     move_edge = GetGrabbedEdge(move_start, move_attr);
                     printf(" -> Edge: %d\n", move_edge);
+                } else if (IsPanel(event.xbutton.window) && event.xbutton.button == Button1) {
+                    printf(" -> BPress[%d] Event, LW:%d\n", event.xbutton.button, event.xany.window);
+                    OnClickPanel(event.xbutton);
                 } else {
                     printf(" -> BPress[%d] Event, Skip.\n", event.xbutton.button);
                 }
@@ -310,18 +313,26 @@ int main(int argc, char* argv[]) {
             }
             XSync(disp, False);
         } else {
-            struct timespec ts = {0, 10000000};
-            DrawPanel();
+            static struct timespec ts = {0, 10000000};
+            DrawPanelClock();
             XSync(disp, False);
             nanosleep(&ts, NULL);
         }
     }
 
+    printf("Quitting Atelier...\n");
+
     XFreeGC(disp, gc);
 
     //管理しているウィンドウをすべて解放する
     ReleaseAllWindows();
-    //DestroyPanel();
+    printf("[OK] Released Windows\n");
+    //パネルを始末する
+    DestroyPanel();
+    printf("[OK] Released Panel\n");
+    //ディスプレイとの接続を切る
     XCloseDisplay(disp);
+    printf("[OK] Closed Display Connection\n");
+    printf("[OK] Reached Quit Atelier\n");
     return 0;
 } 

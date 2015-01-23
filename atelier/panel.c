@@ -1,5 +1,6 @@
 #include <X11/Xlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "atelier.h"
 #include "panel.h"
 #include "time.h"
@@ -9,7 +10,9 @@
 
 Window panel;
 static XColor bgcolor;
+
 extern XFontSet fontset;
+extern Boolean terminate;
 
 typedef enum {
     BUTTON_QUIT,
@@ -26,17 +29,20 @@ static inline void DrawButtonRes(ButtonRes identifier, int x, int y) {
                x, y, 1);
 }
 
-static inline int GetXPointFromRight(int exist_icons) {
+static inline int GetXPoint(int exist_icons) {
     return 2 + BUTTON_PIXMAP_WIDTH * exist_icons;
 }
 
 static void InitPanelResources() {
     ReadStaticBitmap(panel, "shutdown.xbm", &buttons[BUTTON_QUIT]);
+    ReadStaticBitmap(panel, "launch.xbm", &buttons[BUTTON_LAUNCHER]);
 }
 
 static void FreePanelResources() {
     for (int id = 0; id < BUTTON_SIZE; id++) {
-        FreeBitmapRes(buttons[id]);
+        if (buttons[id] != NULL) {
+            FreeBitmapRes(buttons[id]);
+        }
     }
 }
 
@@ -57,7 +63,7 @@ void InitPanel() {
                           0, CopyFromParent, CopyFromParent, CopyFromParent,
                           CWColormap | CWOverrideRedirect | CWBackPixel,
                           &attr);
-    XSelectInput(disp, panel, ExposureMask);
+    XSelectInput(disp, panel, ExposureMask | ButtonPressMask);
     XMapWindow(disp, panel);
 
     InitPanelResources();
@@ -68,21 +74,39 @@ void DestroyPanel() {
     XDestroyWindow(disp, panel);
 }
 
-void DrawPanel() {
+static inline void DrawPanelBackground(XWindowAttributes *attr) {
+    XSetForeground(disp, gc, bgcolor.pixel);
+    XFillRectangle(disp, panel, gc, 0, 0, attr->width, attr->height);
+}
+
+void DrawPanelClock() {
     XWindowAttributes attr;
     char time_str[80];
     XGetWindowAttributes(disp, panel, &attr);
     PrintCurrentTime(time_str, 80);
-
-    XSetForeground(disp, gc, bgcolor.pixel);
-    XFillRectangle(disp, panel, gc, 0, 0, attr.width, attr.height);
-    XSetForeground(disp, gc, WhitePixel(disp, screen));
-    XmbDrawString(disp, panel, fontset, gc,
-                  attr.width - GetXPointFromRight(1) - 2 - XmbTextEscapement(fontset, time_str, strlen(time_str)),
+    {
+        int str_width = XmbTextEscapement(fontset, time_str, strlen(time_str));
+        XRectangle rect = {attr.width - GetXPoint(1) - 2 - str_width, 0, str_width, PANEL_HEIGHT};
+        XSetClipRectangles(disp, gc, 0, 0, &rect, 1, Unsorted);
+        DrawPanelBackground(&attr);
+        XSetForeground(disp, gc, WhitePixel(disp, screen));
+        XmbDrawString(disp, panel, fontset, gc,
+                  attr.width - GetXPoint(1) - 2 - str_width,
                   18, time_str, strlen(time_str));
+        XSetClipMask(disp, gc, None);
+    }
+}
+
+void DrawPanel() {
+    XWindowAttributes attr;
+    XGetWindowAttributes(disp, panel, &attr);
+
+    DrawPanelBackground(&attr);
     XSetForeground(disp, gc, bgcolor.pixel);
     XSetBackground(disp, gc, WhitePixel(disp, screen));
-    DrawButtonRes(BUTTON_QUIT, attr.width - GetXPointFromRight(1), 1);
+    DrawButtonRes(BUTTON_LAUNCHER, GetXPoint(0), 1);
+    DrawButtonRes(BUTTON_QUIT, attr.width - GetXPoint(1), 1);
+    DrawPanelClock();
 }
 
 void RaisePanel() {
@@ -91,4 +115,17 @@ void RaisePanel() {
 
 int IsPanel(Window w) {
     return panel == w;
+}
+
+void OnClickPanel(XButtonEvent event) {
+    XWindowAttributes attr;
+    XGetWindowAttributes(disp, panel, &attr);
+    //なにか判定とかterminateとか
+    if (GetXPoint(0) <= event.x && event.x <= GetXPoint(1)) {
+        //ここでrorolina起動したい
+    }
+    if (attr.width - GetXPoint(1) <= event.x && event.x <= attr.width - GetXPoint(0)) {
+        printf("OnClickPanel: terminate");
+        terminate = TRUE;
+    }
 }
