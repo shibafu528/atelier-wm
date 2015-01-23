@@ -1,6 +1,9 @@
 #include <X11/Xlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #include "atelier.h"
 #include "panel.h"
 #include "time.h"
@@ -123,8 +126,20 @@ void OnClickPanel(XButtonEvent event) {
     //なにか判定とかterminateとか
     if (GetXPoint(0) <= event.x && event.x <= GetXPoint(1)) {
         //ここでrorolina起動したい
-    }
-    if (attr.width - GetXPoint(1) <= event.x && event.x <= attr.width - GetXPoint(0)) {
+        int pid = fork();
+        if (pid == 0) {
+            int pid_2 = fork();
+            if (pid_2 == 0) {
+                execlp("rorolina", "rorolina", NULL);
+                return;
+            } else {
+                exit(0);
+            }
+        } else {
+            int status;
+            waitpid(pid, &status, 0);
+        }
+    } else if (attr.width - GetXPoint(1) <= event.x && event.x <= attr.width - GetXPoint(0)) {
         printf("OnClickPanel: terminate");
         terminate = TRUE;
     }
