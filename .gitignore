@@ -37,3 +37,9 @@ CMakeFiles
 Makefile
 cmake_install.cmake
 install_manifest.txt
+
+# Project executable
+atelier/atelier
+rorolina/rorolina
+xpractice/xprac
+
