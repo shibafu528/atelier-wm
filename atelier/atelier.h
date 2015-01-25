@@ -12,4 +12,17 @@ extern Screen screen;
 extern Window root;
 extern GC gc;
 
+static inline int Max(int a, int b) {
+    return a > b ? a : b;
+}
+
+static inline int Min(int a, int b) {
+    return a > b ? b : a;
+}
+
+static inline void println(const char* line) {
+    printf(line);
+    printf("\n");
+}
+
 #endif
