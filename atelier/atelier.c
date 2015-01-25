@@ -32,6 +32,42 @@ static void QuitHandler(int signum) {
     terminate = TRUE;
 }
 
+static void CaptureExistWindows() {
+    Window r, p;
+    Window* children;
+    uint children_num;
+    XQueryTree(disp, root, &r, &p, &children, &children_num);
+    for (uint i = 0; i < children_num; i++) {
+        XWindowAttributes attr;
+        XGetWindowAttributes(disp, children[i], &attr);
+        if (!attr.override_redirect) {
+            CatchWindow(children[i]);
+            last_raised = FindFrame(children[i]);
+        }
+    }
+    if (children != NULL) {
+        XFree(children);
+    }
+}
+
+static int InitFontSet() {
+    int missing_count;
+    char** missing_list;
+    char* def_string;
+    fontset = XCreateFontSet(disp,
+                             "-*-fixed-medium-r-normal--16-*-*-*",
+                             &missing_list,
+                             &missing_count,
+                             &def_string);
+
+    if (fontset == NULL) {
+        return FALSE;
+    }
+
+    XFreeStringList(missing_list);
+    return TRUE;
+}
+
 int main(int argc, char* argv[]) {
     disp = XOpenDisplay(NULL);
     root = DefaultRootWindow(disp);
@@ -45,23 +81,7 @@ int main(int argc, char* argv[]) {
     }
 
     //既知のウィンドウの取得
-    {
-        Window r, p;
-        Window* children;
-        uint children_num;
-        XQueryTree(disp, root, &r, &p, &children, &children_num);
-        for (uint i = 0; i < children_num; i++) {
-            XWindowAttributes attr;
-            XGetWindowAttributes(disp, children[i], &attr);
-            if (!attr.override_redirect) {
-                CatchWindow(children[i]);
-                last_raised = FindFrame(children[i]);
-            }
-        }
-        if (children != NULL) {
-            XFree(children);
-        }
-    }
+    CaptureExistWindows();
 
     //GCの生成
     gc = XCreateGC(disp, root, 0, NULL);
@@ -70,21 +90,8 @@ int main(int argc, char* argv[]) {
     XSelectInput(disp, root, SubstructureRedirectMask | SubstructureNotifyMask);
 
     //フォントの取得
-    {
-        int missing_count;
-        char** missing_list;
-        char* def_string;
-        fontset = XCreateFontSet(disp,
-                                 "-*-fixed-medium-r-normal--16-*-*-*",
-                                 &missing_list,
-                                 &missing_count,
-                                 &def_string);
-
-        if (fontset == NULL) {
-            return 1;
-        }
-
-        XFreeStringList(missing_list);
+    if (!InitFontSet()) {
+        return 1;
     }
 
     //コンフィグの読み込み
