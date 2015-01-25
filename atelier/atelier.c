@@ -1,5 +1,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xlocale.h>
+#include <X11/cursorfont.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,6 +75,7 @@ static void QuitHandler(int signum) {
 }
 
 int main(int argc, char* argv[]) {
+    Cursor normal_cursor;
     XEvent event;
     KeyCode tabKey;
     WindowList* lastRaised = NULL;
@@ -148,6 +150,10 @@ int main(int argc, char* argv[]) {
     SetSignal(SIGINT, QuitHandler);
     SetSignal(SIGQUIT, QuitHandler);
     SetSignal(SIGTERM, QuitHandler);
+
+    //カーソルの設定
+    normal_cursor = XCreateFontCursor(disp, XC_left_ptr);
+    XDefineCursor(disp, root, normal_cursor);
 
     XSync(disp, False);
 
@@ -280,15 +286,33 @@ int main(int argc, char* argv[]) {
                         XKillClient(disp, wl->window);
                     }
                 } else if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button1) {
+                    Cursor cursor;
                     printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event.xbutton.button, event.xany.window, wl, wl->window, wl->frame);
                     printf(" -> X: %d, Y: %d\n", event.xbutton.x, event.xbutton.y);
-                    XGrabPointer(disp, event.xbutton.window, True,
-                                 PointerMotionMask | ButtonReleaseMask,
-                                 GrabModeAsync, GrabModeAsync,
-                                 None, None, CurrentTime);
                     XGetWindowAttributes(disp, event.xbutton.window, &move_attr);
                     move_start = event.xbutton;
                     move_edge = GetGrabbedEdge(move_start, move_attr);
+                    switch (move_edge) {
+                    case EDGE_LEFT:
+                        cursor = XCreateFontCursor(disp, XC_left_side);
+                        break;
+                    case EDGE_RIGHT:
+                        cursor = XCreateFontCursor(disp, XC_right_side);
+                        break;
+                    case EDGE_TOP:
+                        cursor = XCreateFontCursor(disp, XC_top_side);
+                        break;
+                    case EDGE_BOTTOM:
+                        cursor = XCreateFontCursor(disp, XC_bottom_side);
+                        break;
+                    default:
+                        cursor = XCreateFontCursor(disp, XC_fleur);
+                        break;
+                    }
+                    XGrabPointer(disp, event.xbutton.window, True,
+                                 PointerMotionMask | ButtonReleaseMask,
+                                 GrabModeAsync, GrabModeAsync,
+                                 None, cursor, CurrentTime);
                     printf(" -> Edge: %d\n", move_edge);
                 } else if (IsPanel(event.xbutton.window) && event.xbutton.button == Button1) {
                     printf(" -> BPress[%d] Event, LW:%d\n", event.xbutton.button, event.xany.window);
@@ -327,6 +351,7 @@ int main(int argc, char* argv[]) {
     printf("Quitting Atelier...\n");
 
     XFreeGC(disp, gc);
+    XUndefineCursor(disp, root);
 
     //管理しているウィンドウをすべて解放する
     ReleaseAllWindows();
