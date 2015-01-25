@@ -45,10 +45,14 @@ void ConfigureRequestHandler(XConfigureRequestEvent event) {
 }
 
 void RaiseWindow(WindowList *wl) {
+    XWindowAttributes attr;
     if (wl == NULL) return;
-    XRaiseWindow(disp, wl->frame);
-    XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
-    RaisePanel();
+    XGetWindowAttributes(disp, wl->frame, &attr);
+    if (attr.map_state == IsViewable) {
+        XRaiseWindow(disp, wl->frame);
+        XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
+        RaisePanel();
+    }
 }
 
 static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes attr) {
