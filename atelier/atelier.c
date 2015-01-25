@@ -18,14 +18,13 @@ Boolean terminate = FALSE;
 
 extern XFontSet fontset;
 
-typedef enum _GrabbedEdge GrabbedEdge;
-enum _GrabbedEdge {
+typedef enum {
     EDGE_NONE   = 0,
     EDGE_TOP    = 1,
     EDGE_LEFT   = 1 << 1,
     EDGE_RIGHT  = 1 << 2,
     EDGE_BOTTOM = 1 << 3
-};
+} GrabbedEdge;
 
 #define RESIZE_THRESHOLD 4
 
