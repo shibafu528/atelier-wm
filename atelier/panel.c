@@ -120,17 +120,19 @@ int IsPanel(Window w) {
     return panel == w;
 }
 
+static inline Boolean OnRange(int start, int target, int end) {
+    return start <= target && target <= end;
+}
+
 void OnClickPanel(XButtonEvent event) {
     XWindowAttributes attr;
     XGetWindowAttributes(disp, panel, &attr);
-    //なにか判定とかterminateとか
-    if (GetXPoint(0) <= event.x && event.x <= GetXPoint(1)) {
-        //ここでrorolina起動したい
+    if (OnRange(GetXPoint(0), event.x, GetXPoint(1))) {
         int pid = fork();
         if (pid == 0) {
             int pid_2 = fork();
             if (pid_2 == 0) {
-                execlp("rorolina", "rorolina", NULL);
+                execlp(config.launcher_path, config.launcher_path, NULL);
                 return;
             } else {
                 exit(0);
@@ -139,7 +141,7 @@ void OnClickPanel(XButtonEvent event) {
             int status;
             waitpid(pid, &status, 0);
         }
-    } else if (attr.width - GetXPoint(1) <= event.x && event.x <= attr.width - GetXPoint(0)) {
+    } else if (OnRange(attr.width - GetXPoint(1), event.x, attr.width - GetXPoint(0))) {
         printf("OnClickPanel: terminate");
         terminate = TRUE;
     }

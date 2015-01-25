@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include "atelier.h"
+#include "resource.h"
 #include "window.h"
 #include "panel.h"
 
@@ -130,6 +131,9 @@ int main(int argc, char* argv[]) {
 
         XFreeStringList(missing_list);
     }
+
+    //コンフィグの読み込み
+    LoadConfig();
 
     //パネルの初期化
     InitPanel();
