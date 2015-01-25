@@ -12,6 +12,7 @@
 
 XFontSet fontset;
 WindowList *windows = NULL;
+WindowList *last_raised = NULL;
 
 WindowList* CreateWindowList(Window frame, Window window) {
     WindowList* wl = (WindowList*)malloc(sizeof(WindowList));
@@ -113,8 +114,31 @@ void FitToClient(WindowList *wl) {
     XMoveWindow(disp, wl->window, FRAME_BORDER, FRAME_TITLE_HEIGHT);
 }
 
-void DrawFrame(WindowList *wl) {
+void GetWindowTitle(Window window, char *buffer, size_t buffer_length) {
     Atom net_wm_name = XInternAtom(disp, "_NET_WM_NAME", False);
+    XTextProperty prop;
+    buffer[0] = '\0';
+    XGetTextProperty(disp, window, &prop, net_wm_name);
+    if (prop.nitems == 0) {
+        XGetWMName(disp, window, &prop);
+    }
+    if (prop.nitems > 0 && prop.value) {
+        if (prop.encoding == XA_STRING) {
+            strncpy(buffer, (char*) prop.value, buffer_length-1);
+        } else {
+            char **l = NULL;
+            int count;
+            XmbTextPropertyToTextList(disp, &prop, &l, &count);
+            if (count > 0 && *l) {
+                strncpy(buffer, *l, buffer_length-1);
+            }
+            XFreeStringList(l);
+        }
+        buffer[buffer_length-1] = '\0';
+    }
+}
+
+void DrawFrame(WindowList *wl) {
     XWindowAttributes attr;
     XGetWindowAttributes(disp, wl->frame, &attr);
     
@@ -124,28 +148,8 @@ void DrawFrame(WindowList *wl) {
 
     XSetForeground(disp, gc, BlackPixel(disp, screen));
     {
-        int title_length = 512;
-        char title[title_length];
-        XTextProperty prop;
-        title[0] = '\0';
-        XGetTextProperty(disp, wl->window, &prop, net_wm_name);
-        if (prop.nitems == 0) {
-            XGetWMName(disp, wl->window, &prop);
-        }
-        if (prop.nitems > 0 && prop.value) {
-            if (prop.encoding == XA_STRING) {
-                strncpy(title, (char*) prop.value, title_length-1);
-            } else {
-                char **l = NULL;
-                int count;
-                XmbTextPropertyToTextList(disp, &prop, &l, &count);
-                if (count > 0 && *l) {
-                    strncpy(title, *l, title_length-1);
-                }
-                XFreeStringList(l);
-            }
-            title[511] = '\0';
-        }
+        char title[512];
+        GetWindowTitle(wl->window, title, sizeof(title));
         XmbDrawString(disp, wl->frame, fontset, gc, 2, 16, title, strlen(title));
     }
 }

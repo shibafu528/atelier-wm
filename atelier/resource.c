@@ -13,10 +13,8 @@ ConfigRes config;
 
 static void GetInstalledDirectory(char* buffer, int buffer_length) {
     char path[PATH_MAX+1] = {};
-    char* base;
     readlink("/proc/self/exe", path, sizeof(path) - 1);
-    base = dirname(path);
-    strncpy(buffer, base, buffer_length);
+    strncpy(buffer, dirname(path), buffer_length);
 }
 
 static inline void NewBitmapRes(BitmapRes **res) {
@@ -44,6 +42,7 @@ int ReadStaticBitmap(Drawable d, char *filename, BitmapRes **res_return) {
                            &(*res_return)->x_hot, &(*res_return)->y_hot);
 }
 
+//json_tから指定keyのString値を取り出す。無ければ空白を返す
 static inline const char* GetStringValueIfExist(json_t *object, const char* key) {
     json_t *value = json_object_get(object, key);
     if (value == NULL) {
@@ -62,16 +61,14 @@ void LoadConfig() {
             sprintf(filepath, "%s/atelierrc.default", filepath);
         } else {
             sprintf(filepath, "%s/.atelierrc", home);
-            struct stat st;
-            if (stat(filepath, &st) != 0) {
+            if (stat(filepath, &(struct stat){}) != 0) {
                 GetInstalledDirectory(filepath, sizeof(filepath));
                 sprintf(filepath, "%s/atelierrc.default", filepath);
             }
         }
         printf("LoadConfig: %s\n", filepath);
     }
-    json_error_t error;
-    json_t *root = json_load_file(filepath, 0, &error);
+    json_t *root = json_load_file(filepath, 0, &(json_error_t){});
     if (json_is_object(root)) {
         strncpy(config.launcher_path, GetStringValueIfExist(root, "launcher"), sizeof(config.launcher_path));
     }

@@ -60,6 +60,8 @@ void FitToFrame(WindowList *wl);
 //フレームをクライアントに合わせる
 void FitToClient(WindowList *wl);
 
+void GetWindowTitle(Window window, char *buffer, size_t buffer_length);
+
 void DrawFrame(WindowList *wl);
 
 #endif

@@ -11,13 +11,7 @@
 #include "window.h"
 #include "panel.h"
 
-Display *disp;
-Screen screen;
-Window root;
-GC gc;
-Boolean terminate = FALSE;
-
-extern XFontSet fontset;
+#define RESIZE_THRESHOLD 4
 
 typedef enum {
     EDGE_NONE   = 0,
@@ -27,19 +21,26 @@ typedef enum {
     EDGE_BOTTOM = 1 << 3
 } GrabbedEdge;
 
-#define RESIZE_THRESHOLD 4
+Display *disp;
+Screen screen;
+Window root;
+GC gc;
+Boolean terminate = FALSE;
+
+extern XFontSet fontset;
+extern WindowList *last_raised;
 
 void ConfigureRequestHandler(XConfigureRequestEvent event) {
     WindowList *wl = FindFrame(event.window);
-    XWindowChanges change;
-    change.x = event.x;
-    change.y = event.y;
-    change.width = event.width;
-    change.height = event.height;
-    change.border_width = event.border_width;
-    change.sibling = event.above;
-    change.stack_mode = event.detail;
-    XConfigureWindow(disp, event.window, event.value_mask, &change);
+    XConfigureWindow(disp, event.window, event.value_mask, &(XWindowChanges){
+            .x = event.x,
+            .y = event.y,
+            .width = event.width,
+            .height = event.height,
+            .border_width = event.border_width,
+            .sibling = event.above,
+            .stack_mode = event.detail
+    });
     if (IsClient(wl, event.window)) {
         FitToClient(wl);
     }
@@ -78,7 +79,6 @@ int main(int argc, char* argv[]) {
     Cursor normal_cursor;
     XEvent event;
     KeyCode tabKey;
-    WindowList* lastRaised = NULL;
     Atom wm_protocols;
     Atom wm_delete_window;
     Atom net_wm_name;
@@ -98,13 +98,13 @@ int main(int argc, char* argv[]) {
         Window r, p;
         Window* children;
         uint children_num;
-        XWindowAttributes attr;
         XQueryTree(disp, root, &r, &p, &children, &children_num);
         for (uint i = 0; i < children_num; i++) {
+            XWindowAttributes attr;
             XGetWindowAttributes(disp, children[i], &attr);
             if (!attr.override_redirect) {
                 CatchWindow(children[i]);
-                lastRaised = FindFrame(children[i]);
+                last_raised = FindFrame(children[i]);
             }
         }
         if (children != NULL) {
@@ -177,15 +177,17 @@ int main(int argc, char* argv[]) {
                 printf(" -> MReq Event\n");
                 XMapWindow(disp, CatchWindow(event.xmaprequest.window));
                 XMapWindow(disp, event.xmaprequest.window);
-                lastRaised = FindFrame(event.xmaprequest.window);
-                RaiseWindow(lastRaised);
+                last_raised = FindFrame(event.xmaprequest.window);
+                RaiseWindow(last_raised);
+                DrawPanelSwitcher();
                 break;
             case UnmapNotify:
                 if (wl != NULL) {
                     printf(" -> Unmap Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                    lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
+                    last_raised = wl->next? wl->next : wl->prev? wl->prev : NULL;
                     ReleaseWindow(wl, FALSE);
-                    RaiseWindow(lastRaised);
+                    RaiseWindow(last_raised);
+                    DrawPanelSwitcher();
                 } else {
                     printf(" -> Unmap Event, Skip.\n");
                 }
@@ -193,9 +195,10 @@ int main(int argc, char* argv[]) {
             case DestroyNotify:
                 if (wl != NULL) {
                     printf(" -> Destroy Event, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
-                    lastRaised = wl->next? wl->next : wl->prev? wl->prev : NULL;
+                    last_raised = wl->next? wl->next : wl->prev? wl->prev : NULL;
                     ReleaseWindow(wl, TRUE);
-                    RaiseWindow(lastRaised);
+                    RaiseWindow(last_raised);
+                    DrawPanelSwitcher();
                 } else {
                     printf(" -> Destroy Event, Skip.\n");
                 }
@@ -208,6 +211,7 @@ int main(int argc, char* argv[]) {
                 if (IsClient(wl, event.xany.window) && (event.xproperty.atom == net_wm_name || event.xproperty.atom == wm_name) && dispose_requested != wl) {
                     printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event.xany.window, wl, wl->window, wl->frame);
                     DrawFrame(wl);
+                    DrawPanelSwitcher();
                 }
                 break;
             case Expose:
@@ -259,8 +263,9 @@ int main(int argc, char* argv[]) {
                 break;
             case ButtonPress:
                 if (wl != NULL) {
-                    lastRaised = wl;
+                    last_raised = wl;
                     RaiseWindow(wl);
+                    DrawPanelSwitcher();
                 }
                 if (IsFrame(wl, event.xany.window) && event.xbutton.button == Button3) {
                     Atom *protocols;
@@ -330,12 +335,13 @@ int main(int argc, char* argv[]) {
             case KeyPress:
                 if (event.xkey.keycode == tabKey) {
                     printf(" -> KeyPress Event, SW:%d, LW:%d\n", event.xkey.subwindow, event.xany.window);
-                    if (lastRaised == NULL) {
-                        lastRaised = FindFrame(event.xkey.subwindow);
+                    if (last_raised == NULL) {
+                        last_raised = FindFrame(event.xkey.subwindow);
                     }
-                    if (lastRaised != NULL) {
-                        lastRaised = event.xkey.state == Mod1Mask? GetNextWindow(lastRaised) : GetPrevWindow(lastRaised);
-                        RaiseWindow(lastRaised);
+                    if (last_raised != NULL) {
+                        last_raised = event.xkey.state == Mod1Mask? GetNextWindow(last_raised) : GetPrevWindow(last_raised);
+                        RaiseWindow(last_raised);
+                        DrawPanelSwitcher();
                     }
                 } else {
                     printf(" -> KeyPress Event SW:%d , Skip.\n", event.xkey.subwindow);
@@ -344,10 +350,9 @@ int main(int argc, char* argv[]) {
             }
             XSync(disp, False);
         } else {
-            static struct timespec ts = {0, 10000000};
             DrawPanelClock();
             XSync(disp, False);
-            nanosleep(&ts, NULL);
+            nanosleep(&(struct timespec){0, 10000000}, NULL);
         }
     }
 

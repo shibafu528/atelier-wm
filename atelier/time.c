@@ -3,8 +3,7 @@
 #include "time.h"
 
 void PrintTime(time_t *tm, char* output, int length) {
-    struct tm *local;
-    local = localtime(tm);
+    struct tm *local = localtime(tm);
 
     snprintf(output, length, "%4d/%d/%d %d:%02d:%02d",
               local->tm_year + 1900,

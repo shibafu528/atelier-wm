@@ -10,6 +10,7 @@ void DestroyPanel();
 void ShowPanel();
 void HidePanel();
 void DrawPanelClock();
+void DrawPanelSwitcher();
 void DrawPanel();
 void RaisePanel();
 int IsPanel(Window w);
