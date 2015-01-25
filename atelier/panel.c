@@ -164,10 +164,11 @@ void OnClickPanel(XButtonEvent event) {
     XWindowAttributes attr;
     XGetWindowAttributes(disp, panel, &attr);
     if (OnRange(GetXPoint(0), event.x, GetXPoint(1))) {
+        //Launcherボタン
+        println("OnClickPanel: launcher");
         int pid = fork();
         if (pid == 0) {
-            int pid_2 = fork();
-            if (pid_2 == 0) {
+            if (fork() == 0) {
                 execlp(config.launcher_path, config.launcher_path, NULL);
                 return;
             } else {
@@ -178,7 +179,8 @@ void OnClickPanel(XButtonEvent event) {
             waitpid(pid, &status, 0);
         }
     } else if (OnRange(attr.width - GetXPoint(1), event.x, attr.width - GetXPoint(0))) {
-        printf("OnClickPanel: terminate");
+        //Terminateボタン
+        println("OnClickPanel: terminate");
         terminate = TRUE;
     }
 }
