@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    printf("Quitting Atelier...\n");
+    println("Quitting Atelier...");
 
     //GCとカーソルの解放
     XFreeGC(disp, gc);
@@ -142,13 +142,13 @@ int main(int argc, char* argv[]) {
 
     //管理しているウィンドウをすべて解放する
     ReleaseAllWindows();
-    printf("[OK] Released Windows\n");
+    println("[OK] Released Windows");
     //パネルを始末する
     DestroyPanel();
-    printf("[OK] Released Panel\n");
+    println("[OK] Released Panel");
     //ディスプレイとの接続を切る
     XCloseDisplay(disp);
-    printf("[OK] Closed Display Connection\n");
-    printf("[OK] Reached Quit Atelier\n");
+    println("[OK] Closed Display Connection");
+    println("[OK] Reached Quit Atelier");
     return 0;
 } 
