@@ -116,7 +116,7 @@ void DrawPanelSwitcher() {
         //可変サイズにしたいよなあ。アイテム数が多い時は縮めるみたいな。
         const int item_width = mask.width = 160;
         WindowList *iter = windows;
-        do {
+        for (WindowList *iter = windows; iter != NULL; iter = iter->next) {
             XGetWindowAttributes(disp, iter->frame, &attr);
             if (attr.map_state == IsViewable) {
                 char title[512];
@@ -130,7 +130,7 @@ void DrawPanelSwitcher() {
                 XmbDrawString(disp, panel, fontset, gc, left_margin + 2, 18, title, strlen(title));
                 left_margin += item_width + 2;
             }
-        } while ((iter = iter->next) != NULL);
+        }
     }
     XSetClipMask(disp, gc, None);
 }
