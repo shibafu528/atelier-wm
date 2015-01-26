@@ -61,7 +61,7 @@ static void MapRequestHandler(XEvent *event, WindowList *wl) {
 
 static void UnmapNotifyHandler(XEvent *event, WindowList *wl) {
     if (wl != NULL) {
-        printf(" -> Unmap Event, LW:%d, LF:%d\n", event->xany.window, wl, wl->window, wl->frame);
+        printf(" -> Unmap Event, LW:%d, LF:%d\n", event->xunmap.window, wl, wl->window, wl->frame);
         last_raised = wl->next? wl->next : wl->prev? wl->prev : NULL;
         ReleaseWindow(wl, FALSE);
         RaiseWindow(last_raised);
@@ -73,7 +73,7 @@ static void UnmapNotifyHandler(XEvent *event, WindowList *wl) {
 
 static void DestroyNotifyHandler(XEvent *event, WindowList *wl) {
     if (wl != NULL) {
-        printf(" -> Destroy Event, LW:%d, LF:%d\n", event->xany.window, wl, wl->window, wl->frame);
+        printf(" -> Destroy Event, LW:%d, LF:%d\n", event->xdestroywindow.window, wl, wl->window, wl->frame);
         last_raised = wl->next? wl->next : wl->prev? wl->prev : NULL;
         ReleaseWindow(wl, TRUE);
         RaiseWindow(last_raised);
@@ -85,7 +85,8 @@ static void DestroyNotifyHandler(XEvent *event, WindowList *wl) {
 
 static void ConfigureRequestHandler(XEvent *event, WindowList *wl) {
     XConfigureRequestEvent *conreq = &event->xconfigurerequest;
-    XConfigureWindow(disp, event->xany.window,
+    printf(" -> ConfigureRequest Event, LW:%d, LF:%d\n", conreq->window, wl);
+    XConfigureWindow(disp, conreq->window,
                      conreq->value_mask, &(XWindowChanges){
                              .x = conreq->x,
                              .y = conreq->y,
@@ -101,8 +102,8 @@ static void ConfigureRequestHandler(XEvent *event, WindowList *wl) {
 }
 
 static void PropertyNotifyHandler(XEvent *event, WindowList *wl) {
-    if (IsClient(wl, event->xany.window) && (event->xproperty.atom == net_wm_name || event->xproperty.atom == wm_name) && dispose_requested != wl) {
-        printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event->xany.window, wl, wl->window, wl->frame);
+    if (IsClient(wl, event->xproperty.window) && (event->xproperty.atom == net_wm_name || event->xproperty.atom == wm_name) && dispose_requested != wl) {
+        printf(" -> PropertyNotify Event:(NET_)WM_NAME, LW:%d, LF:%d\n", event->xproperty.window, wl, wl->window, wl->frame);
         DrawFrame(wl);
         DrawPanelSwitcher();
     }
@@ -163,11 +164,11 @@ static void ButtonPressHandler(XEvent *event, WindowList *wl) {
         RaiseWindow(wl);
         DrawPanelSwitcher();
     }
-    if (IsFrame(wl, event->xany.window) && event->xbutton.button == Button3) {
+    if (IsFrame(wl, event->xbutton.window) && event->xbutton.button == Button3) {
         Atom *protocols;
         int protocols_num;
         XEvent delete_event;
-        printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event->xbutton.button, event->xany.window, wl, wl->window, wl->frame);
+        printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event->xbutton.button, event->xbutton.window, wl, wl->window, wl->frame);
         XGetWMProtocols(disp, wl->window, &protocols, &protocols_num);
         printf(" -> WM_PROTOCOLS * %d\n", protocols_num);
         for (int i = 0; i < protocols_num; i++) {
@@ -189,9 +190,9 @@ static void ButtonPressHandler(XEvent *event, WindowList *wl) {
         } else {
             XKillClient(disp, wl->window);
         }
-    } else if (IsFrame(wl, event->xany.window) && event->xbutton.button == Button1) {
+    } else if (IsFrame(wl, event->xbutton.window) && event->xbutton.button == Button1) {
         Cursor cursor;
-        printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event->xbutton.button, event->xany.window, wl, wl->window, wl->frame);
+        printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event->xbutton.button, event->xbutton.window, wl, wl->window, wl->frame);
         printf(" -> X: %d, Y: %d\n", event->xbutton.x, event->xbutton.y);
         XGetWindowAttributes(disp, event->xbutton.window, &move_event.attr);
         move_event.start = event->xbutton;
@@ -219,7 +220,7 @@ static void ButtonPressHandler(XEvent *event, WindowList *wl) {
                      None, cursor, CurrentTime);
         printf(" -> Edge: %d\n", move_event.edge);
     } else if (IsPanel(event->xbutton.window) && event->xbutton.button == Button1) {
-        printf(" -> BPress[%d] Event, LW:%d\n", event->xbutton.button, event->xany.window);
+        printf(" -> BPress[%d] Event, LW:%d\n", event->xbutton.button, event->xbutton.window);
         OnClickPanel(event->xbutton);
     } else {
         printf(" -> BPress[%d] Event, Skip.\n", event->xbutton.button);
@@ -233,7 +234,7 @@ static void ButtonReleaseHandler(XEvent *event, WindowList *wl) {
 
 static void KeyPressHandler(XEvent *event, WindowList *wl) {
     if (event->xkey.keycode == tab_key) {
-        printf(" -> KeyPress Event, SW:%d, LW:%d\n", event->xkey.subwindow, event->xany.window);
+        printf(" -> KeyPress Event, SW:%d, LW:%d\n", event->xkey.subwindow, event->xkey.window);
         if (last_raised == NULL) {
             last_raised = FindFrame(event->xkey.subwindow);
         }
