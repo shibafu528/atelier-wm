@@ -2,7 +2,10 @@
 #define WINDOW_H
 
 #include <X11/Xlib.h>
+#include <stdlib.h>
 #include "atelier.h"
+
+#define foreach_wl(wl) for(WindowList *iter = (wl); iter != NULL; iter = iter->next)
 
 typedef struct _WindowList WindowList;
 struct _WindowList {
@@ -40,6 +43,32 @@ static inline WindowList* GetPrevWindow(WindowList *wl) {
 
 static inline WindowList* GetNextWindow(WindowList *wl) {
     return wl->next? wl->next : GetFirstWindow(wl);
+}
+
+static inline int GetWindowNum(WindowList *wl) {
+    int i = 0;
+    foreach_wl(wl) {
+        i++;
+    }
+    return i;
+}
+
+static inline int GetSwitchableWindows(WindowList *wl, WindowList ***wl_return) {
+    int size = GetWindowNum(wl);
+    *wl_return = (WindowList**)calloc(size, sizeof(WindowList*));
+    int i = 0;
+    foreach_wl(wl) {
+        XWindowAttributes attr;
+        XGetWindowAttributes(disp, iter->frame, &attr);
+        if (attr.map_state == IsViewable) {
+            (*wl_return)[i++] = iter;
+        }
+    }
+    return i;
+}
+
+static inline void FreeWindowsArray(WindowList ***wl_array) {
+    free(*wl_array);
 }
 
 WindowList* CreateWindowList(Window frame, Window window);

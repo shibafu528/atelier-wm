@@ -31,6 +31,11 @@ static XColor highlight_color;
 static BitmapRes* buttons[BUTTON_SIZE];
 static int clock_text_width;
 
+static struct {
+    WindowList** windows;
+    int num;
+} last_switchable;
+
 static inline void DrawButtonRes(ButtonRes identifier, int x, int y) {
     XCopyPlane(disp, buttons[identifier]->pixmap, panel, gc, 0, 0,
               buttons[identifier]->width, buttons[identifier]->height,
@@ -76,6 +81,9 @@ void InitPanel() {
 
 void DestroyPanel() {
     FreePanelResources();
+    if (last_switchable.windows != NULL) {
+        FreeWindowsArray(&last_switchable.windows);
+    }
     XDestroyWindow(disp, panel);
 }
 
@@ -113,23 +121,22 @@ void DrawPanelSwitcher() {
     XSetBackground(disp, gc, bgcolor.pixel);
     XSetForeground(disp, gc, WhitePixel(disp, screen));
     {
-        //可変サイズにしたいよなあ。アイテム数が多い時は縮めるみたいな。
-        const int item_width = mask.width = 160;
-        WindowList *iter = windows;
-        for (WindowList *iter = windows; iter != NULL; iter = iter->next) {
-            XGetWindowAttributes(disp, iter->frame, &attr);
-            if (attr.map_state == IsViewable) {
-                char title[512];
-                GetWindowTitle(iter->window, title, sizeof(title));
-                XSetClipRectangles(disp, gc, left_margin, 0, &mask, 1, Unsorted);
-                if (iter == last_raised) {
-                    XSetForeground(disp, gc, highlight_color.pixel);
-                    XFillRectangle(disp, panel, gc, left_margin, 0, item_width, PANEL_HEIGHT);
-                    XSetForeground(disp, gc, WhitePixel(disp, screen));
-                }
-                XmbDrawString(disp, panel, fontset, gc, left_margin + 2, 18, title, strlen(title));
-                left_margin += item_width + 2;
+        if (last_switchable.windows != NULL) {
+            FreeWindowsArray(&last_switchable.windows);
+        }
+        last_switchable.num = GetSwitchableWindows(windows, &last_switchable.windows);
+        const int item_width = mask.width = Min(160, mask.width / DivSafe(last_switchable.num));
+        for (int i = 0; i < last_switchable.num && last_switchable.windows[i] != NULL; i++) {
+            char title[512];
+            GetWindowTitle(last_switchable.windows[i]->window, title, sizeof(title));
+            XSetClipRectangles(disp, gc, left_margin, 0, &mask, 1, Unsorted);
+            if (last_switchable.windows[i] == last_raised) {
+                XSetForeground(disp, gc, highlight_color.pixel);
+                XFillRectangle(disp, panel, gc, left_margin, 0, item_width, PANEL_HEIGHT);
+                XSetForeground(disp, gc, WhitePixel(disp, screen));
             }
+            XmbDrawString(disp, panel, fontset, gc, left_margin + 2, 18, title, strlen(title));
+            left_margin += item_width + 2;
         }
     }
     XSetClipMask(disp, gc, None);
