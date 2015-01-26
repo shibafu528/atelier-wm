@@ -179,6 +179,8 @@ void OnClickPanel(XButtonEvent event) {
         int pid = fork();
         if (pid == 0) {
             if (fork() == 0) {
+                freopen("/dev/null", "w", stdout);
+                freopen("/dev/null", "w", stderr);
                 execlp(config.launcher_path, config.launcher_path, NULL);
                 return;
             } else {
