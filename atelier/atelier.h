@@ -20,6 +20,10 @@ static inline int Min(int a, int b) {
     return a > b ? b : a;
 }
 
+static inline int DivSafe(int x) {
+    return x == 0 ? 1 : x;
+}
+
 static inline void println(const char* line) {
     printf(line);
     printf("\n");
