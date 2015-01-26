@@ -37,8 +37,6 @@ static struct {
     int item_width;
 } last_switchable;
 
-void RaiseWindow(WindowList *wl);
-
 static inline void DrawButtonRes(ButtonRes identifier, int x, int y) {
     XCopyPlane(disp, buttons[identifier]->pixmap, panel, gc, 0, 0,
               buttons[identifier]->width, buttons[identifier]->height,

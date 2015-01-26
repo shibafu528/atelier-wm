@@ -30,17 +30,6 @@ static struct {
 
 extern WindowList *last_raised;
 
-void RaiseWindow(WindowList *wl) {
-    XWindowAttributes attr;
-    if (wl == NULL) return;
-    XGetWindowAttributes(disp, wl->frame, &attr);
-    if (attr.map_state == IsViewable) {
-        XRaiseWindow(disp, wl->frame);
-        XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
-        RaisePanel();
-    }
-}
-
 static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes attr) {
     GrabbedEdge edge = EDGE_NONE;
     if (start.y < RESIZE_THRESHOLD)               edge |= EDGE_TOP;

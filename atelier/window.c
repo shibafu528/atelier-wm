@@ -153,3 +153,14 @@ void DrawFrame(WindowList *wl) {
         XmbDrawString(disp, wl->frame, fontset, gc, 2, 16, title, strlen(title));
     }
 }
+
+void RaiseWindow(WindowList *wl) {
+    XWindowAttributes attr;
+    if (wl == NULL) return;
+    XGetWindowAttributes(disp, wl->frame, &attr);
+    if (attr.map_state == IsViewable) {
+        XRaiseWindow(disp, wl->frame);
+        XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
+        RaisePanel();
+    }
+}

@@ -93,4 +93,6 @@ void GetWindowTitle(Window window, char *buffer, size_t buffer_length);
 
 void DrawFrame(WindowList *wl);
 
+void RaiseWindow(WindowList *wl);
+
 #endif
