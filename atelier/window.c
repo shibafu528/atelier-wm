@@ -16,11 +16,37 @@ WindowList *last_raised = NULL;
 
 WindowList* CreateWindowList(Window frame, Window window) {
     WindowList* wl = (WindowList*)malloc(sizeof(WindowList));
-    wl->prev = NULL;
-    wl->next = NULL;
+    memset(wl, 0, sizeof(WindowList));
+    wl->state = NormalState;
     wl->frame = frame;
     wl->window = window;
     return wl;
+}
+
+static int SetWMState(Window w, WMState state) {
+    unsigned long data[2] = {state, None};
+    Atom wm_state = XInternAtom(disp, "WM_STATE", False);
+    XChangeProperty(disp, w, wm_state, wm_state, 32, PropModeReplace, (unsigned char*)data, 2);
+    return state;
+}
+
+static WMState GetWMState(Window w) {
+    Atom wm_state = XInternAtom(disp, "WM_STATE", False);
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    unsigned char *prop_return = NULL;
+    WMState state_return = 0;
+
+    XGetWindowProperty(disp, w, wm_state, 0, 2, False, wm_state,
+                       &actual_type, &actual_format, &nitems, &bytes_after,
+                       &prop_return);
+    if (nitems == 1) {
+        unsigned long *datap = (unsigned long*)prop_return;
+        state_return = (WMState)datap[0];
+    }
+    XFree(prop_return);
+    return state_return;
 }
 
 //WindowをWMの管理下に置きフレームをつける
@@ -158,9 +184,30 @@ void RaiseWindow(WindowList *wl) {
     XWindowAttributes attr;
     if (wl == NULL) return;
     XGetWindowAttributes(disp, wl->frame, &attr);
-    if (attr.map_state == IsViewable) {
+    if (wl->state == IconicState) {
+        DeIconifyWindow(wl);
+        XRaiseWindow(disp, wl->frame);
+        XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
+        RaisePanel();
+    } else if (attr.map_state == IsViewable) {
         XRaiseWindow(disp, wl->frame);
         XSetInputFocus(disp, wl->window, RevertToPointerRoot, CurrentTime);
         RaisePanel();
     }
+}
+
+void IconifyWindow(WindowList *wl) {
+    wl->state = SetWMState(wl->window, IconicState);
+    XUnmapWindow(disp, wl->window);
+    XUnmapWindow(disp, wl->frame);
+    last_raised = GetPrevWindow(wl);
+    while (last_raised->state == IconicState && last_raised != wl) {
+        last_raised = GetPrevWindow(last_raised);
+    }
+}
+
+void DeIconifyWindow(WindowList *wl) {
+    wl->state = SetWMState(wl->window, NormalState);
+    XMapWindow(disp, wl->frame);
+    XMapWindow(disp, wl->window);
 }

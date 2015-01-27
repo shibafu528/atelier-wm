@@ -2,15 +2,19 @@
 #define WINDOW_H
 
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <stdlib.h>
 #include "atelier.h"
 
 #define foreach_wl(wl) for(WindowList *iter = (wl); iter != NULL; iter = iter->next)
 
+typedef int WMState; // WithdrawnState, NormalState, IconicState
+
 typedef struct _WindowList WindowList;
 struct _WindowList {
     Window frame;
     Window window;
+    WMState state;
     WindowList *prev;
     WindowList *next;
 };
@@ -60,7 +64,7 @@ static inline int GetSwitchableWindows(WindowList *wl, WindowList ***wl_return) 
     foreach_wl(wl) {
         XWindowAttributes attr;
         XGetWindowAttributes(disp, iter->frame, &attr);
-        if (attr.map_state == IsViewable) {
+        if (attr.map_state == IsViewable || iter->state != WithdrawnState) {
             (*wl_return)[i++] = iter;
         }
     }
@@ -94,5 +98,9 @@ void GetWindowTitle(Window window, char *buffer, size_t buffer_length);
 void DrawFrame(WindowList *wl);
 
 void RaiseWindow(WindowList *wl);
+
+void IconifyWindow(WindowList *wl);
+
+void DeIconifyWindow(WindowList *wl);
 
 #endif

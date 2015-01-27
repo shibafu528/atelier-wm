@@ -1,4 +1,5 @@
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #include <stdio.h>
 #include "atelier.h"
@@ -41,7 +42,7 @@ static inline GrabbedEdge GetGrabbedEdge(XButtonEvent start, XWindowAttributes a
 
 static void MapRequestHandler(XEvent *event, WindowList *wl) {
     printf(" -> MReq Event\n");
-    XMapWindow(disp, CatchWindow(event->xmaprequest.window));
+    XMapWindow(disp, wl? wl->frame : CatchWindow(event->xmaprequest.window));
     XMapWindow(disp, event->xmaprequest.window);
     last_raised = FindFrame(event->xmaprequest.window);
     RaiseWindow(last_raised);
@@ -51,9 +52,13 @@ static void MapRequestHandler(XEvent *event, WindowList *wl) {
 static void UnmapNotifyHandler(XEvent *event, WindowList *wl) {
     if (wl != NULL) {
         printf(" -> Unmap Event, LW:%d, LF:%d\n", event->xunmap.window, wl, wl->window, wl->frame);
+        if (wl->state != IconicState) {
+            ReleaseWindow(wl, FALSE);
+        }
         last_raised = wl->next? wl->next : wl->prev? wl->prev : NULL;
-        ReleaseWindow(wl, FALSE);
-        RaiseWindow(last_raised);
+        if (last_raised != NULL && last_raised->state != IconicState) {
+            RaiseWindow(last_raised);
+        }
         DrawPanelSwitcher();
     } else {
         printf(" -> Unmap Event, Skip.\n");
@@ -147,67 +152,85 @@ static void MotionNotifyHandler(XEvent *event, WindowList *wl) {
     FitToFrame(wl);
 }
 
+static void Button1PressHandler(XEvent *event, WindowList *wl) {
+    Cursor cursor;
+    printf(" -> X: %d, Y: %d\n", event->xbutton.x, event->xbutton.y);
+    XGetWindowAttributes(disp, event->xbutton.window, &move_event.attr);
+    move_event.start = event->xbutton;
+    move_event.edge = GetGrabbedEdge(move_event.start, move_event.attr);
+    switch (move_event.edge) {
+    case EDGE_LEFT:
+        cursor = XCreateFontCursor(disp, XC_left_side);
+        break;
+    case EDGE_RIGHT:
+        cursor = XCreateFontCursor(disp, XC_right_side);
+        break;
+    case EDGE_TOP:
+        cursor = XCreateFontCursor(disp, XC_top_side);
+        break;
+    case EDGE_BOTTOM:
+        cursor = XCreateFontCursor(disp, XC_bottom_side);
+        break;
+    default:
+        cursor = XCreateFontCursor(disp, XC_fleur);
+        break;
+    }
+    XGrabPointer(disp, event->xbutton.window, True,
+                 PointerMotionMask | ButtonReleaseMask,
+                 GrabModeAsync, GrabModeAsync,
+                 None, cursor, CurrentTime);
+    printf(" -> Edge: %d\n", move_event.edge);
+}
+
+static void Button2PressHandler(XEvent *event, WindowList *wl) {
+    IconifyWindow(wl);
+    if (last_raised->state != IconicState) {
+        RaiseWindow(last_raised);
+    }
+}
+
+static void Button3PressHandler(XEvent *event, WindowList *wl) {
+    Atom *protocols;
+    int protocols_num;
+    XEvent delete_event;
+    XGetWMProtocols(disp, wl->window, &protocols, &protocols_num);
+    printf(" -> WM_PROTOCOLS * %d\n", protocols_num);
+    for (int i = 0; i < protocols_num; i++) {
+        if (protocols[i] == wm_delete_window) {
+            printf(" -> Found WM_DELETE_WINDOW\n");
+            delete_event.xclient.type = ClientMessage;
+            delete_event.xclient.window = wl->window;
+            delete_event.xclient.message_type = wm_protocols;
+            delete_event.xclient.format = 32;
+            delete_event.xclient.data.l[0] = wm_delete_window;
+            delete_event.xclient.data.l[1] = CurrentTime;
+            break;
+        }
+    }
+    XFree(protocols);
+    dispose_requested = wl;
+    if (delete_event.xclient.type == ClientMessage) {
+        XSendEvent(disp, wl->window, False, NoEventMask, &delete_event);
+    } else {
+        XKillClient(disp, wl->window);
+    }
+}
+
 static void ButtonPressHandler(XEvent *event, WindowList *wl) {
+    static void (*frame_press_handler[])(XEvent *event, WindowList *wl) = {
+        [Button1] = Button1PressHandler,
+        [Button2] = Button2PressHandler,
+        [Button3] = Button3PressHandler
+    };
+    
     if (wl != NULL) {
         last_raised = wl;
         RaiseWindow(wl);
         DrawPanelSwitcher();
     }
-    if (IsFrame(wl, event->xbutton.window) && event->xbutton.button == Button3) {
-        Atom *protocols;
-        int protocols_num;
-        XEvent delete_event;
+    if (IsFrame(wl, event->xbutton.window)) {
         printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event->xbutton.button, event->xbutton.window, wl, wl->window, wl->frame);
-        XGetWMProtocols(disp, wl->window, &protocols, &protocols_num);
-        printf(" -> WM_PROTOCOLS * %d\n", protocols_num);
-        for (int i = 0; i < protocols_num; i++) {
-            if (protocols[i] == wm_delete_window) {
-                printf(" -> Found WM_DELETE_WINDOW\n");
-                delete_event.xclient.type = ClientMessage;
-                delete_event.xclient.window = wl->window;
-                delete_event.xclient.message_type = wm_protocols;
-                delete_event.xclient.format = 32;
-                delete_event.xclient.data.l[0] = wm_delete_window;
-                delete_event.xclient.data.l[1] = CurrentTime;
-                break;
-            }
-        }
-        XFree(protocols);
-        dispose_requested = wl;
-        if (delete_event.xclient.type == ClientMessage) {
-            XSendEvent(disp, wl->window, False, NoEventMask, &delete_event);
-        } else {
-            XKillClient(disp, wl->window);
-        }
-    } else if (IsFrame(wl, event->xbutton.window) && event->xbutton.button == Button1) {
-        Cursor cursor;
-        printf(" -> BPress[%d] Event, LW:%d, LF:%d\n", event->xbutton.button, event->xbutton.window, wl, wl->window, wl->frame);
-        printf(" -> X: %d, Y: %d\n", event->xbutton.x, event->xbutton.y);
-        XGetWindowAttributes(disp, event->xbutton.window, &move_event.attr);
-        move_event.start = event->xbutton;
-        move_event.edge = GetGrabbedEdge(move_event.start, move_event.attr);
-        switch (move_event.edge) {
-        case EDGE_LEFT:
-            cursor = XCreateFontCursor(disp, XC_left_side);
-            break;
-        case EDGE_RIGHT:
-            cursor = XCreateFontCursor(disp, XC_right_side);
-            break;
-        case EDGE_TOP:
-            cursor = XCreateFontCursor(disp, XC_top_side);
-            break;
-        case EDGE_BOTTOM:
-            cursor = XCreateFontCursor(disp, XC_bottom_side);
-            break;
-        default:
-            cursor = XCreateFontCursor(disp, XC_fleur);
-            break;
-        }
-        XGrabPointer(disp, event->xbutton.window, True,
-                     PointerMotionMask | ButtonReleaseMask,
-                     GrabModeAsync, GrabModeAsync,
-                     None, cursor, CurrentTime);
-        printf(" -> Edge: %d\n", move_event.edge);
+        frame_press_handler[event->xbutton.button](event, wl);
     } else if (IsPanel(event->xbutton.window) && event->xbutton.button == Button1) {
         printf(" -> BPress[%d] Event, LW:%d\n", event->xbutton.button, event->xbutton.window);
         OnClickPanel(event->xbutton);

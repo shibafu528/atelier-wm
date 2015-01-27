@@ -136,6 +136,11 @@ void DrawPanelSwitcher() {
                 XFillRectangle(disp, panel, gc, left_margin, 0, last_switchable.item_width, PANEL_HEIGHT);
                 XSetForeground(disp, gc, WhitePixel(disp, screen));
             }
+            if (last_switchable.windows[i]->state == IconicState) {
+                char title_cpy[512];
+                strcpy(title_cpy, title);
+                snprintf(title, sizeof(title), "[%s]", title_cpy);
+            }
             XmbDrawString(disp, panel, fontset, gc, left_margin + 2, 18, title, strlen(title));
             left_margin += last_switchable.item_width + 2;
         }
@@ -198,8 +203,13 @@ void OnClickPanel(XButtonEvent event) {
         printf("OnClickPanel: selected %d\n", selected);
         if (selected < last_switchable.num) {
             WindowList *wl = last_switchable.windows[selected];
-            RaiseWindow(wl);
-            last_raised = wl;
+            if (wl == last_raised && wl->state != IconicState) {
+                IconifyWindow(wl);
+            } else {
+                DeIconifyWindow(wl);
+                RaiseWindow(wl);
+                last_raised = wl;
+            }
             DrawPanelSwitcher();
         }
     }
