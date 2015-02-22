@@ -12,9 +12,13 @@
 ConfigRes config;
 
 static void GetInstalledDirectory(char* buffer, int buffer_length) {
+#ifdef RESOURCE_DIR
+    strncpy(buffer, RESOURCE_DIR, buffer_length);
+#else
     char path[PATH_MAX+1] = {};
     readlink("/proc/self/exe", path, sizeof(path) - 1);
     strncpy(buffer, dirname(path), buffer_length);
+#endif
 }
 
 static inline void NewBitmapRes(BitmapRes **res) {
